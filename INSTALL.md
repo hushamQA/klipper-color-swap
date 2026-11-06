@@ -1,51 +1,54 @@
-# تثبيت ماكرو COLOR_SWAP — على أي طابعة Klipper
+**English** | [العربية](INSTALL.ar.md)
 
-الإصدار 5 — 2026-11-06 — لطابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2)
+# Installing the COLOR_SWAP macro — on any Klipper printer
 
-## محتويات الملف المضغوط
+Version 5 — 2026-11-06 — for the FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2)
 
-| الملف | ماذا تفعل به |
+## Contents
+
+| File | What to do with it |
 |---|---|
-| `color_swap.cfg` | **الماكرو نفسه** — يُرفع لكل طابعة |
-| `FLSUN_V400/macros.cfg` و`FLSUN_V400/KlipperScreen.conf` | ملفات جاهزة لطابعة FLSUN V400 فقط (فيها أسطر الربط وزرّا Color swap وResume saved) |
-| `orca_change_filament_gcode.txt` | سطر OrcaSlicer لتبديل اللون |
-| `moonraker_notifier.txt` | 🆕 قسم رسائل الهاتف (Telegram) يُلصق في آخر `moonraker.conf` |
-| `orca_before_layer_change_gcode.txt` | 🆕 سطر OrcaSlicer لنقاط الحفظ (استكمال بعد انقطاع الكهرباء) |
-| `README.md` | طريقة الاستعمال خطوة بخطوة |
-| `test/` | نموذج تجربة: لوح + حرف T |
-| `ROLLBACK_v4/` | 🆕 ملفات الطابعة قبل الإصدار 5 (للرجوع) |
-| `SHA256SUMS.txt` | بصمة كل ملف — للتأكد أن الملف سليم بعد الرفع |
+| `color_swap.cfg` | **The macro itself** — upload it on every printer |
+| `FLSUN_V400/macros.cfg` and `FLSUN_V400/KlipperScreen.conf` | Ready-made files for the FLSUN V400 only (they contain the hook lines and the Color swap and Resume saved buttons) |
+| `orca_change_filament_gcode.txt` | OrcaSlicer line for the color swap |
+| `moonraker_notifier.txt` | 🆕 Phone messages section (Telegram), pasted at the end of `moonraker.conf` |
+| `orca_before_layer_change_gcode.txt` | 🆕 OrcaSlicer line for save points (resume after a power cut) |
+| `README.md` / `README.ar.md` | Step-by-step usage (English / Arabic) |
+| `INSTALL.md` / `INSTALL.ar.md` | This file (English / Arabic) |
+| `test/` | Test model: a plate + the letter T |
+| `ROLLBACK_v4/` | 🆕 The printer's files before version 5 (to go back) |
+| `SHA256SUMS.txt` | Checksum of every file — to confirm a file is intact after uploading |
 
-ملفات `ROLLBACK_v4/` منسوخة من الطابعة نفسها (الإصدار 4 العامل). ملفات الإصدار 5 مطابقة لما رُفع إلى الطابعة يوم 2026-11-06.
+The `ROLLBACK_v4/` files were copied from the printer itself (the working version 4). The version 5 files match what was uploaded to the printer on 2026-11-06.
 
 ---
 
-## الحالة 1 — طابعة FLSUN V400 (10 دقائق)
+## Case 1 — FLSUN V400 printer (10 minutes)
 
-1. افتح **Mainsail** ← **Machine** (ملفات الإعدادات).
-2. خذ نسخة احتياطية: نزّل `macros.cfg` و`printer.cfg` إلى جهازك.
-3. ارفع `color_swap.cfg`.
-4. ارفع `FLSUN_V400/macros.cfg` مكان `macros.cfg` الموجود.
-   > إن كان `macros.cfg` في طابعتك مختلفًا (عدّلته بنفسك)، لا ترفعه — اتبع الخطوتين 3 و4 من الحالة 2 بدلًا من ذلك.
-5. افتح `printer.cfg` وأضف هذا السطر **تحت** `[include macros.cfg]` مباشرة:
+1. Open **Mainsail** → **Machine** (config files).
+2. Make a backup: download `macros.cfg` and `printer.cfg` to your computer.
+3. Upload `color_swap.cfg`.
+4. Upload `FLSUN_V400/macros.cfg` in place of the existing `macros.cfg`.
+   > If the `macros.cfg` on your printer is different (you edited it yourself), do not upload it — follow steps 2 and 3 of Case 2 instead.
+5. Open `printer.cfg` and add this line directly **below** `[include macros.cfg]`:
    ```
    [include color_swap.cfg]
    ```
-6. ارفع `KlipperScreen.conf` مكان الموجود (يضيف زر **Color swap** في قائمة الطباعة)، ثم أعد تشغيل KlipperScreen.
-7. 🆕 افتح `moonraker.conf` والصق محتوى `moonraker_notifier.txt` في **آخره** (لا تستبدل الملف كاملًا).
-   ثم بدّل `BOT_TOKEN` و`CHAT_ID` (الخطوات في `README.md`، الجزء 4).
-8. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
-9. **التجربة:** اكتب في الـ Console:
+6. Upload `KlipperScreen.conf` in place of the existing one (it adds the **Color swap** button to the print menu), then restart KlipperScreen.
+7. 🆕 Open `moonraker.conf` and paste the content of `moonraker_notifier.txt` at its **end** (do not replace the whole file).
+   Then replace `BOT_TOKEN` and `CHAT_ID` (steps in [`README.md`](README.md), Part 4).
+8. Make sure the printer is **not printing**, then press **Save & Restart**.
+9. **Test:** type in the Console:
    ```
    COLOR_SWAP
    ```
-   الرد الصحيح: `COLOR_SWAP only works during a print.` ← التثبيت ناجح، ولم يتحرك شيء.
+   The correct reply: `COLOR_SWAP only works during a print.` → the install worked, and nothing moved.
 
 ---
 
-## الحالة 2 — طابعة Klipper أخرى (20 دقيقة)
+## Case 2 — another Klipper printer (20 minutes)
 
-### قبل البدء: تأكد أن `printer.cfg` فيه هذه الأقسام
+### Before you start: make sure `printer.cfg` has these sections
 
 ```
 [pause_resume]
@@ -54,90 +57,90 @@
 [gcode_arcs]
 ```
 
-أي قسم غير موجود ← أضفه كما هو (سطر واحد لكل قسم).
+Any section that is missing → add it as is (one line per section).
 
-### الخطوات
+### Steps
 
-1. ارفع `color_swap.cfg` وأضف `[include color_swap.cfg]` إلى `printer.cfg`.
-2. **ماكرو `RESUME`:** أضف هذا السطر **أول سطر** داخل `gcode:`:
+1. Upload `color_swap.cfg` and add `[include color_swap.cfg]` to `printer.cfg`.
+2. **`RESUME` macro:** add this line as the **first line** inside `gcode:`:
    ```
    _COLOR_SWAP_ON_RESUME
    ```
-3. **ماكرو `CANCEL_PRINT`:** أضف هذا السطر **قبل** `CANCEL_PRINT_BASE`:
+3. **`CANCEL_PRINT` macro:** add this line **before** `CANCEL_PRINT_BASE`:
    ```
    _COLOR_SWAP_RESET
    ```
-   **ماكرو البداية (`START_PRINT` أو `PRINT_START`):** أضف في أوله:
+   **Start macro (`START_PRINT` or `PRINT_START`):** add at its beginning:
    ```
    _CS_CLEAR_CHECKPOINT
    ```
-   **ماكرو النهاية (`END_PRINT` أو `PRINT_END`):** أضف في آخره (يوقف الحفظ التلقائي بعد انتهاء الطباعة):
+   **End macro (`END_PRINT` or `PRINT_END`):** add at its end (stops the autosave after the print finishes):
    ```
    _CS_CLEAR_CHECKPOINT DONE=1
    ```
-   > إن كان ماكرو البداية عندك ينتهي بسحب خيط (`G1 E-…`) بعد خط التنظيف: احذفه.
-   > Orca يسحب ويرجع ما سحبه هو فقط، فيبدأ الـ skirt ناقصًا ومتقطعًا.
-   > الاستكمال بعد التوقف (`RESUME_SAVED_PRINT`) يحتاج `[save_variables]` في `printer.cfg`،
-   > ويعمل على طابعات **الدلتا فقط** (الـ Home فيها يصعد للأعلى). في الطابعات الأخرى الـ Home ينزل على القطعة، فالماكرو يرفض.
-   مثال:
+   > If your start macro ends with a filament retraction (`G1 E-…`) after the prime line: delete it.
+   > Orca only retracts and restores what it retracted itself, so the skirt starts short and broken.
+   > Resuming after a stop (`RESUME_SAVED_PRINT`) needs `[save_variables]` in `printer.cfg`,
+   > and works on **delta printers only** (their Home moves up). On other printers Home moves down onto the part, so the macro refuses.
+   Example:
    ```
    [gcode_macro RESUME]
    rename_existing: RESUME_BASE
    gcode:
      _COLOR_SWAP_ON_RESUME
-     ...باقي الماكرو كما هو...
+     ...rest of the macro unchanged...
    ```
-   > مُستحسن: إن كان `RESUME` عندك يدفع الخيط (`G1 E…`) قبل `RESUME_BASE`، تخطَّ هذا الدفع بعد التبديل
-   > وأضف `VELOCITY=250` إلى `RESUME_BASE` — انظر `RESUME` في `FLSUN_V400/macros.cfg` كمثال.
-   > إن كان `RESUME` و`CANCEL_PRINT` من ملف `mainsail.cfg` أو `fluidd.cfg` (لا يُعدَّل)،
-   > انسخ الماكرو إلى ملف ماكروهاتك أولًا، ثم أضف السطر.
-4. افتح `color_swap.cfg` وعدّل قسم `[gcode_macro _COLOR_SWAP_CFG]`:
+   > Recommended: if your `RESUME` pushes filament (`G1 E…`) before `RESUME_BASE`, skip that push after a swap
+   > and add `VELOCITY=250` to `RESUME_BASE` — see `RESUME` in `FLSUN_V400/macros.cfg` as an example.
+   > If `RESUME` and `CANCEL_PRINT` come from `mainsail.cfg` or `fluidd.cfg` (which are not edited),
+   > copy the macro into your own macros file first, then add the line.
+4. Open `color_swap.cfg` and edit the `[gcode_macro _COLOR_SWAP_CFG]` section:
 
-   | المتغير | ماذا تضع |
+   | Variable | What to set |
    |---|---|
-   | `park_x / park_y` | نقطة الصخ: فوق حافة السرير، بعيدًا عن القطعة |
-   | `sensor` | اسم حساس الخيط في `printer.cfg` (إن لم يوجد حساس فلا مشكلة) |
+   | `park_x / park_y` | The purge spot: above the bed edge, away from the part |
+   | `sensor` | The name of the filament sensor in `printer.cfg` (no sensor is fine) |
 
-   **مثال سرير مربع 235×235 مم** (إحداثيات من 0 إلى 235):
+   **Example for a 235×235 mm square bed** (coordinates from 0 to 235):
    ```
    variable_park_x: 117.5
    variable_park_y: 10
    ```
-5. **Save & Restart**، ثم التجربة كما في الخطوة 9 من الحالة 1.
+5. **Save & Restart**, then test as in step 9 of Case 1.
 
-> الماكرو يستدعي `PAUSE` الموجود في طابعتك لرفع الرأس وإبعاده.
-> تأكد أن `PAUSE` عندك يرفع الرأس فعلًا قبل أول طبعة.
+> The macro calls your printer's existing `PAUSE` to lift the head and move it away.
+> Make sure your `PAUSE` really lifts the head before the first print.
 
 ---
 
-## إعداد OrcaSlicer (مرة لكل بروفايل طابعة)
+## OrcaSlicer setup (once per printer profile)
 
-1. **Printer settings** ← ابحث عن **Manual filament change** ← ✔.
-2. **Printer settings** ← ابحث عن **Change filament G-code** ← الصق محتوى `orca_change_filament_gcode.txt`:
+1. **Printer settings** → search for **Manual filament change** → ✔.
+2. **Printer settings** → search for **Change filament G-code** → paste the content of `orca_change_filament_gcode.txt`:
    ```
    {if layer_num >= 0}COLOR_SWAP SLOT={next_extruder + 1} MATERIAL={filament_type[next_extruder]} OLD_MATERIAL={filament_type[previous_extruder]} TEMP={new_filament_temp} OLD_TEMP={old_filament_temp} RETRACT={new_retract_length_toolchange} PURGE={flush_length}{endif}
    ```
-3. **Process** ← ابحث عن **Prime tower** ← أطفئ **Enable**.
-4. **حرارة السرير**: ابحث عن `bed temperature` واختر **By First filament**.
-5. 🆕 **Printer settings** ← **Machine G-code** ← **Before layer change G-code** ← أضف في آخره (اترك الموجود):
+3. **Process** → search for **Prime tower** → turn **Enable** off.
+4. **Bed temperature**: search for `bed temperature` and choose **By First filament**.
+5. 🆕 **Printer settings** → **Machine G-code** → **Before layer change G-code** → add at its end (keep what is there):
    ```
    _CS_CHECKPOINT LAYER={layer_num + 1} TOTAL={total_layer_count} SLOT={current_extruder + 1} MATERIAL={filament_type[current_extruder]}
    ```
-   > خطأ عند التقطيع؟ احذف `SLOT=…` و`MATERIAL=…` واترك الباقي.
-6. احفظ البروفايلين.
+   > Error when slicing? Delete `SLOT=…` and `MATERIAL=…` and keep the rest.
+6. Save both profiles.
 
 ---
 
-## الرجوع للإصدار 4 (FLSUN V400)
+## Going back to version 4 (FLSUN V400)
 
-1. ارفع الملفين من `ROLLBACK_v4/` مكان الموجودين: `color_swap.cfg` و`macros.cfg`.
-2. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
-3. Orca لا يحتاج تغييرًا.
+1. Upload the two files from `ROLLBACK_v4/` in place of the existing ones: `color_swap.cfg` and `macros.cfg`.
+2. Make sure the printer is **not printing**, then press **Save & Restart**.
+3. Orca needs no change.
 
 ---
 
-## إزالة الماكرو (الرجوع للوضع السابق)
+## Removing the macro (back to the previous state)
 
-1. احذف السطر `[include color_swap.cfg]` من `printer.cfg`.
-2. احذف الأسطر `_COLOR_SWAP_ON_RESUME` و`_COLOR_SWAP_RESET` و`_CS_CLEAR_CHECKPOINT`، وسطر `_CS_CHECKPOINT` من Orca.
+1. Delete the line `[include color_swap.cfg]` from `printer.cfg`.
+2. Delete the lines `_COLOR_SWAP_ON_RESUME`, `_COLOR_SWAP_RESET` and `_CS_CLEAR_CHECKPOINT`, and the `_CS_CHECKPOINT` line from Orca.
 3. **Save & Restart**.

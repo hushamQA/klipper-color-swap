@@ -1,339 +1,347 @@
-# طباعة عدة ألوان بطابعة لون واحد — FLSUN V400 (الإصدار 5)
+**English** | [العربية](README.ar.md)
 
-ملف طباعة **واحد**. كلما احتاجت الطباعة لونًا جديدًا تتوقف الطابعة وحدها وتظهر نافذة على الشاشة.
-تبدّل الخيط، تضغط زرًا، وتكمل الطباعة.
+# Multi-color printing on a single-extruder printer — FLSUN V400 (version 5)
 
-> 🎬 **فيديو الشرح (دقيقتان):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
-> صُوّر على **الإصدار 2**: خطوات التثبيت نفسها، لكن بعض الأزرار تغيّرت (Continue صار على اليسار، وأزرار الصخ صارت 15 / 30 / 60 مم). المرجع الصحيح هو هذا الملف.
+**One** print file. Whenever the print needs a new color, the printer pauses on its own and a window appears on the screen.
+You swap the filament, press a button, and the print continues.
 
-## ما الجديد في الإصدار 5 (2026-11-06)
+> 🎬 **Tutorial video (2 minutes, Arabic):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
+> Recorded on **version 2**: the install steps are the same, but some buttons have changed (Continue is now on the left, and the purge buttons are now 15 / 30 / 60 mm). This file is the correct reference.
 
-| المشكلة | الحل |
+Installation: [`INSTALL.md`](INSTALL.md)
+
+## What's new in version 5 (2026-11-06)
+
+| Problem | Fix |
 |---|---|
-| لا استكمال بعد انقطاع الكهرباء إلا بسطر Orca | **حفظ تلقائي كل دقيقة** من Klipper نفسه، لكل طباعة ولكل بروفايل. وعند تشغيل الطابعة بعد الانقطاع **تظهر نافذة الاستكمال وحدها** |
-| هزّة الرأس بعد التبديل غير ضرورية | **حُذفت** (`flick: 0`) |
-| ضغطة ثانية على مكان Load + purge تضغط Continue print بالخطأ | أثناء العمل **نافذة بلا أزرار**. Continue صار على **اليسار** ويسأل مرة ثانية. ومكان Load + purge صار زر **Purge** فقط |
-| الـ skirt متقطع في البداية | `START_PRINT` كان يسحب 1 مم بعد خط التنظيف ولا يرجعه أحد. **حُذف السحب**. والـ skirt نفسه **أُطفئ** في بروفايل Orca `0.20mm FLSun V400 -COLOR_SWAP` (`Skirt loops = 0`)، تضيفه بنفسك عند الحاجة |
-| الرجوع للفيلمنت الأساسي بعد فيلمنت الدعامات يحتاج +60 مم يدويًا | **+60 مم تلقائيًا** (`purge_to_main_extra`)، والصخ على **دفعات** تكنس بقايا الفيلمنت القديم |
-| بداية متعثرة للون في الطبقة الأولى (حروف صغيرة) | **في الطبقة الأولى فقط**: خط تنظيف قصير على حافة السرير بعد كل تبديل |
+| No resume after a power cut unless the Orca line was added | **Autosave every minute** from Klipper itself, for every print and every profile. When the printer is switched on after a power cut, **the resume window opens on its own** |
+| The head flick after a swap is not needed | **Removed** (`flick: 0`) |
+| A second tap where Load + purge was pressed Continue print by mistake | While work runs, the window has **no buttons**. Continue is now on the **left** and asks a second time. The Load + purge spot is now a **Purge** button only |
+| The skirt is broken at the start | `START_PRINT` retracted 1 mm after the prime line and nothing restored it. **The retraction is removed**. The skirt itself is **turned off** in the Orca profile `0.20mm FLSun V400 -COLOR_SWAP` (`Skirt loops = 0`); add it yourself when you need it |
+| Going back to the main filament after the support filament needed +60 mm by hand | **+60 mm automatically** (`purge_to_main_extra`), and the purge runs in **pulses** that sweep out the old filament |
+| The new color starts badly on the first layer (small letters) | **First layer only**: a short wipe line on the bed edge after every swap |
 
-## ما الجديد في الإصدار 4 (2026-11-05)
+## What's new in version 4 (2026-11-05)
 
-| المشكلة | الحل |
+| Problem | Fix |
 |---|---|
-| ضغطة خفيفة أثناء إدخال الخيط تحرّك الرأس فيضيع مكانه | أثناء التبديل تمسك المحركات الرأس بتيار الطباعة الكامل (1.5 A بدل 0.5 A = ثلاثة أضعاف القوة) |
-| تحرّك الرأس رغم ذلك | زر **Head moved? Re-home** في نافذة التبديل: الرأس **يصعد** للأعلى (Home)، ثم يرجع لمكان الصخ. Continue يرجع للنقطة الصحيحة تمامًا |
-| لا طريقة لاستكمال طباعة أُلغيت عند تغيير الفيلمنت | نقطة حفظ عند كل تبديل لون + زر **Resume saved** |
-| انقطاع الكهرباء | نقطة حفظ عند بداية كل طبقة، محفوظة على ذاكرة الطابعة (تبقى بعد انقطاع الكهرباء) |
+| A light push while inserting filament moves the head, and it loses its position | During a swap the motors hold the head at full print current (1.5 A instead of 0.5 A = three times the force) |
+| The head moved anyway | **Head moved? Re-home** button in the swap window: the head goes **up** (Home), then back to the purge spot. Continue returns to exactly the right point |
+| No way to resume a print that was cancelled at a filament change | A save point at every color swap + a **Resume saved** button |
+| Power cut | A save point at the start of every layer, stored on the printer's disk (survives a power cut) |
 
-## ما الجديد في الإصدار 3 (2026-11-05)
+## What's new in version 3 (2026-11-05)
 
-| المشكلة في الإصدار 2 | الحل في الإصدار 3 |
+| Problem in version 2 | Fix in version 3 |
 |---|---|
-| خط التنظيف ينزل الرأس إلى Z 0.3 بجانب النموذج ← خطر اصطدام | **حُذف خط التنظيف**. الرأس لا ينزل أبدًا تحت ارتفاع الطبقة التي توقف عندها |
-| حركات كثيرة بعد الصخ قبل الطباعة | بعد Continue: صخ صغير جدًا + هزّة جانبية + رجوع **بخط واحد مباشر وسريع** |
-| بداية اللون الجديد خطوط متقطعة | الرأس يُملأ مباشرة قبل الرجوع، والرجوع سريع (250 مم/ث بدل 50)، و`RESUME` لم يعد يدفع 1 مم في مكان الصخ |
-| فشل الصخ عند خلط PETG و PLA | الصخ يتم بالحرارة **الأعلى** (ليذوب البلاستيك القديم)، ثم تبريد، ثم صخ قصير بالحرارة الجديدة |
-| التحميل يدفع بسرعة داخل الفوهة | آخر 15 مم من التحميل ببطء (3 مم/ث) |
-| تأخير بعد الضغط على Load + purge | التسخين يبدأ **قبل** إخراج الخيط القديم. و`M109` (ينتظر حتى تستقر الحرارة ±1°C، 10–40 ث زيادة) استُبدل بانتظار يتوقف فور دخول الحرارة ضمن ±3°C |
-| كمية الصخ كبيرة | الكمية تأتي من **جدول Flushing volumes في Orca** حسب الألوان (25–42 مم عادة بدل 100) |
-| لا يوجد إلغاء | زر **Cancel...** في كل نافذة، مع خيار إخراج الخيط وهو ساخن |
-| إغلاق النافذة = لا طريقة لفتحها | زر **Color swap** في قائمة الطباعة في KlipperScreen، أو الماكرو `COLOR_SWAP_PROMPT` في Mainsail |
-| انسداد بسبب سحب خيط بارد | كل إخراج للخيط **ينتظر حتى تسخن الفوهة**. وأُصلح `UNLOAD_FILAMENT` (كان يسحب أثناء التبريد) |
+| The wipe line lowered the head to Z 0.3 next to the model → collision risk | **Wipe line removed**. The head never goes below the height of the layer where it paused |
+| Many moves after the purge before printing | After Continue: a tiny purge + a side flick + return **in one straight, fast move** |
+| The new color starts with broken lines | The nozzle is primed right before returning, the return is fast (250 mm/s instead of 50), and `RESUME` no longer pushes 1 mm at the purge spot |
+| Purge failed when mixing PETG and PLA | The purge runs at the **higher** temperature (so the old plastic melts), then cools, then a short purge at the new temperature |
+| Loading pushed fast into the nozzle | The last 15 mm of the load are slow (3 mm/s) |
+| Delay after pressing Load + purge | Heating starts **before** the old filament is unloaded. `M109` (waits until the temperature settles within ±1°C, 10–40 s extra) is replaced with a wait that ends as soon as the temperature is within ±3°C |
+| Purge amount too large | The amount comes from **Orca's Flushing volumes table** based on the colors (usually 25–42 mm instead of 100) |
+| No cancel | A **Cancel...** button in every window, with the option to unload the filament while hot |
+| Closing the window = no way to reopen it | A **Color swap** button in KlipperScreen's print menu, or the `COLOR_SWAP_PROMPT` macro in Mainsail |
+| Clogs from pulling cold filament | Every unload **waits for the nozzle to heat**. `UNLOAD_FILAMENT` is fixed (it used to pull while cooling) |
 
 ---
 
-## الجزء 1 — ضبط OrcaSlicer (مرة واحدة)
+## Part 1 — OrcaSlicer setup (once)
 
-> اكتب اسم كل إعداد في **مربع البحث** داخل الإعدادات. إن لم يظهر، فعّل **Advanced**.
+> Type each setting's name into the **search box** in the settings. If it does not appear, turn on **Advanced**.
 
-1. **Printer settings** ← **Change filament G-code** ← امسح ما فيه والصق هذا السطر كما هو (سطر واحد):
+1. **Printer settings** → **Change filament G-code** → clear it and paste this line exactly (one line):
    ```
    {if layer_num >= 0}COLOR_SWAP SLOT={next_extruder + 1} MATERIAL={filament_type[next_extruder]} OLD_MATERIAL={filament_type[previous_extruder]} TEMP={new_filament_temp} OLD_TEMP={old_filament_temp} RETRACT={new_retract_length_toolchange} PURGE={flush_length}{endif}
    ```
-2. **حرارة السرير** ← ابحث عن `bed temperature` ← اختر الخيار **By First filament** (بدل **By Highest Temp**).
-   بهذا يبقى السرير على حرارة الخيط المطبوع أولًا طوال الطباعة. الماكرو نفسه لا يغيّر حرارة السرير أبدًا.
-3. **🆕 نقاط الحفظ (للكهرباء)** ← **Printer settings** ← **Machine G-code** ← **Before layer change G-code** ←
-   أضف هذا السطر **في آخره** (اترك الأسطر الموجودة كما هي):
+2. **Bed temperature** → search for `bed temperature` → choose **By First filament** (instead of **By Highest Temp**).
+   The bed then stays at the temperature of the first filament for the whole print. The macro itself never changes the bed temperature.
+3. **🆕 Save points (for power cuts)** → **Printer settings** → **Machine G-code** → **Before layer change G-code** →
+   add this line **at the end** (keep the existing lines):
    ```
    _CS_CHECKPOINT LAYER={layer_num + 1} TOTAL={total_layer_count} SLOT={current_extruder + 1} MATERIAL={filament_type[current_extruder]}
    ```
-   المحتوى الكامل في `orca_before_layer_change_gcode.txt`. يمكن إضافته لأي بروفايل طابعة، حتى للطباعة بلون واحد.
-   > إن أظهر Orca خطأ عند التقطيع بسبب هذا السطر: احذف الجزأين `SLOT=…` و`MATERIAL=…` واترك الباقي.
-4. احفظ إعداد الطابعة وإعداد الطباعة.
+   The full content is in `orca_before_layer_change_gcode.txt`. It can be added to any printer profile, even for single-color prints.
+   > If Orca shows an error when slicing because of this line: delete the `SLOT=…` and `MATERIAL=…` parts and keep the rest.
+4. Save the printer profile and the process profile.
 
-باقي الإعدادات كما هي من الإصدار 2: **Manual filament change** ✔، **Prime tower** مطفأ،
-**Exclude objects** ✔ و**Label objects** ✔.
+The other settings stay as in version 2: **Manual filament change** ✔, **Prime tower** off,
+**Exclude objects** ✔ and **Label objects** ✔.
 
-### كمية الصخ
+### Purge amount
 
-زر **Flushing volumes** في لوحة Filament (فوق الخيوط) يعرض الجدول. Orca يحسب الكمية من فرق اللونين.
-الماكرو يأخذها، ويطبّق عليها:
+The **Flushing volumes** button in the Filament panel (above the filaments) shows the table. Orca computes the amount from the two colors.
+The macro takes it and applies:
 
-| القاعدة | القيمة |
+| Rule | Value |
 |---|---|
-| أقل كمية | 25 مم (≈ 60 مم³) |
-| أكثر كمية | 250 مم |
-| إضافة عند تغيير **النوع** (PLA ↔ PETG) | +15 مم |
-| 🆕 إضافة عند **الرجوع للفيلمنت الأساسي** (مثلًا PLA دعامات ← PETG) | +60 مم |
-| بدون رقم من Orca | 50 مم (القيمة القياسية في Marlin، ≈ 120 مم³ مثل Prusa) |
+| Minimum | 25 mm (≈ 60 mm³) |
+| Maximum | 250 mm |
+| Added when the **type** changes (PLA ↔ PETG) | +15 mm |
+| 🆕 Added when **going back to the main filament** (e.g. PLA supports → PETG) | +60 mm |
+| No number from Orca | 50 mm (the Marlin default, ≈ 120 mm³ like Prusa) |
 
-مثال: PLA ← PETG (رجوع للأساسي) = 25 + 15 + 60 = **100 مم**، على 5 دفعات كل منها 20 مم.
+Example: PLA → PETG (back to the main filament) = 25 + 15 + 60 = **100 mm**, in 5 pulses of 20 mm each.
 
-**🆕 لتعديل الـ +60 يدويًا:** `color_swap.cfg` ← السطر 87:
+The "main filament" is the one the print **started** with (the old filament at the first swap), not a fixed type.
+If a print starts with PLA, the +60 is added when going back to PLA.
+
+**🆕 To change the +60 by hand:** `color_swap.cfg` → line 87:
 ```
 variable_purge_to_main_extra: 60
 ```
-غيّر الرقم ← Save & Restart. (السطر 81 `purge_material_change` = الإضافة عند تغيير النوع، والسطر 94 `purge_pulse_mm` = حجم الدفعة، 0 = بلا دفعات.)
+Change the number → Save & Restart. (Line 81 `purge_material_change` = the amount added when the type changes; line 94 `purge_pulse_mm` = pulse size, 0 = no pulses.)
 
-> مرجع للمقارنة: مستخدمو Bambu يذكرون حوالي 800 مم³ (≈ 330 مم) لتغيير PLA ← PETG. إن بقيت الطبقة هشّة بعد التغيير، ارفع الرقم إلى 120–200.
+> For comparison: Bambu users report about 800 mm³ (≈ 330 mm) for a PLA → PETG change. If the layer is still brittle after the change, raise the number to 120–200.
 
 ---
 
-## الجزء 2 — أثناء الطباعة
+## Part 2 — During the print
 
-الطابعة ترفع الرأس **للأعلى أولًا**، ثم تذهب إلى الحافة الأمامية وتُخرج الخيط القديم وهو ساخن.
+The printer lifts the head **up first**, then moves to the front edge and unloads the old filament while hot.
 
-### النافذة 1: «Color swap - load filament 2»
+### Window 1: "Color swap - load filament 2"
 
-1. اسحب الخيط القديم.
-2. أدخل الخيط الجديد.
-3. اضغط **Load + purge**.
+1. Pull out the old filament.
+2. Insert the new filament.
+3. Press **Load + purge**.
 
-| زر آخر | متى |
+| Other button | When |
 |---|---|
-| **PLA 215C** / **PETG 240C** | الخيط الجديد من نوع غير الذي في الملف |
-| **Unload again** | الخيط القديم لم يخرج |
-| **Cancel...** | تريد إلغاء الطباعة |
+| **PLA 215C** / **PETG 240C** | The new filament is a different type from the one in the file |
+| **Unload again** | The old filament did not come out |
+| **Cancel...** | You want to cancel the print |
 
-### النافذة 2: «Color swap - check the purge»
+### Window 2: "Color swap - check the purge"
 
-> 🆕 أثناء التحميل والصخ تظهر نافذة **بلا أزرار** («please wait»). انتظرها حتى تختفي.
+> 🆕 While loading and purging, a window **with no buttons** appears ("please wait"). Wait until it closes.
 
-4. انظر للخيط الخارج: لونه مختلط؟ اضغط **Purge +15** أو **+30** أو **+60** (أو زر **Purge +30mm** في الأسفل يمينًا).
-5. **اقطع** الخيط عند الفوهة بالملقط. لا تشدّه بقوة (الشدّ يُفرغ الفوهة فتبدأ الخطوط متقطعة).
-6. اضغط **Continue...** (أسفل **يسار**) ← ثم **Yes, continue print**. ما يحدث بعده:
-   1. صخ صغير جدًا (1.5 مم) لملء الفوهة.
-   2. 🆕 **في الطبقة الأولى فقط:** خط تنظيف قصير (قوس 10 سم) على حافة السرير الأمامية اليمنى، على ارتفاع 0.3 مم.
-      كل تبديل في الطبقة الأولى يرسم خطه 1.2 مم إلى الداخل. يُتخطّى ويظهر السبب إن اقترب النموذج أقل من 10 مم من الخط.
-   3. رجوع بخط واحد مستقيم وسريع إلى مكان الطباعة.
+4. Look at the filament coming out: is the color mixed? Press **Purge +15**, **+30** or **+60** (or the **Purge +30mm** button at the bottom right).
+5. **Cut** the strand at the nozzle with tweezers. Do not pull it hard (pulling empties the nozzle, and the lines start broken).
+6. Press **Continue...** (bottom **left**) → then **Yes, continue print**. What happens next:
+   1. A tiny purge (1.5 mm) to fill the nozzle.
+   2. 🆕 **First layer only:** a short wipe line (a 10 cm arc) on the front-right edge of the bed, at 0.3 mm height.
+      Each swap on the first layer draws its line 1.2 mm further in. It is skipped, with the reason shown, if the model is closer than 10 mm to the line.
+   3. Return in one straight, fast move to the print position.
 
-| الأزرار في الأسفل (الإصدار 5) | يسار | وسط | يمين |
+| Bottom buttons (version 5) | Left | Middle | Right |
 |---|---|---|---|
-| النافذة 1 | Cancel... | Unload again | **Load + purge** |
-| النافذة 2 | **Continue...** (يسأل مرة ثانية) | Cancel... | Purge +30mm |
-| السؤال | Back | — | **Yes, continue print** |
+| Window 1 | Cancel... | Unload again | **Load + purge** |
+| Window 2 | **Continue...** (asks a second time) | Cancel... | Purge +30mm |
+| The question | Back | — | **Yes, continue print** |
 
-ضغطتان متتاليتان في نفس المكان لا تكملان الطباعة أبدًا.
+Two taps in a row on the same spot never continue the print.
 
-### أغلقتُ النافذة
+### I closed the window
 
-- **KlipperScreen**: شاشة الطباعة ← **Menu** ← **Color swap**.
-- **Mainsail**: زر الماكرو **COLOR_SWAP_PROMPT**.
+- **KlipperScreen**: print screen → **Menu** → **Color swap**.
+- **Mainsail**: the **COLOR_SWAP_PROMPT** macro button.
 
-### 🆕 تحرّك الرأس وأنا أُدخل الخيط
+### 🆕 The head moved while I was inserting the filament
 
-1. اضغط **Head moved? Re-home** (موجود في النافذتين).
-2. الرأس يصعد للأعلى حتى النهاية، ثم ينزل من **المنتصف** إلى ارتفاع الصخ، ثم يذهب للحافة الأمامية.
-3. أكمل التبديل كالعادة. **Continue print** يرجع للنقطة الصحيحة.
+1. Press **Head moved? Re-home** (it is in both windows).
+2. The head goes all the way up, then comes down from the **center** to the purge height, then moves to the front edge.
+3. Finish the swap as usual. **Continue print** returns to the correct point.
 
-> نصيحة: امسك جسم الإكسترودر بيدك الأخرى وأنت تدفع الخيط.
-
----
-
-## 🆕 الجزء 3 — استكمال طباعة متوقفة
-
-يعمل بعد: **إلغاء** عند تبديل لون، أو **تحرّك الرأس** ثم إلغاء، أو **انقطاع الكهرباء**.
-
-### قبل البدء — تحقق بعينك
-
-| الشرط | لماذا |
-|---|---|
-| القطعة ما زالت ملتصقة بالسرير ولم تتحرك | الطباعة تكمل فوقها في نفس الإحداثيات |
-| الفوهة لا تلمس القطعة | بعد انقطاع الكهرباء قد يسقط الرأس. ارفعه بيدك برفق (المحركات مطفأة) |
-| الملف ما زال على الطابعة بنفس الاسم | الطابعة تكمل من نفس الملف |
-
-### الخطوات (10–15 دقيقة، أغلبها تسخين)
-
-1. 🆕 **بعد انقطاع الكهرباء:** شغّل الطابعة وانتظر دقيقة، فتظهر النافذة **وحدها**.
-   في الحالات الأخرى: **KlipperScreen** ← الشاشة الرئيسية ← **Resume saved** (أو في **Mainsail**: الماكرو **RESUME_SAVED_PRINT**).
-2. تظهر نافذة فيها: اسم الملف، والطبقة، والارتفاع Z. اضغط **Start**.
-   - الطابعة تسخّن السرير، و**تصعد** للأعلى (Home)، ثم تنزل من المنتصف وتذهب للحافة الأمامية، وتسخّن الفوهة.
-3. تظهر نافذة **Resume - filament N**:
-   - الخيط الصحيح موجود؟ ← **Purge +15mm** حتى يخرج نظيفًا.
-   - خيط آخر أو لا خيط؟ ← **Unload** ← أدخل الخيط الصحيح ← **Load + purge**.
-4. **اقطع** الخيط عند الفوهة بالملقط.
-5. اضغط **Continue...** (أسفل يسار) ← **Yes, continue print**. الرأس يتحرك **فوق** القطعة إلى النقطة المحفوظة، ثم ينزل عموديًا، ثم يكمل الملف.
-
-| زر آخر | ماذا يفعل |
-|---|---|
-| **Delete point** | يحذف نقطة الحفظ |
-| **Cancel resume** (في الخطوة 3) | يطفئ السخانات ويرفع الرأس. النقطة تبقى محفوظة |
-
-### أين تُحفظ النقاط؟
-
-| متى | من أين تكمل |
-|---|---|
-| 🆕 **كل دقيقة أثناء الطباعة** (تلقائي، لكل بروفايل) | من نفس السطر تقريبًا: يضيع أقل من دقيقة |
-| بداية كل طبقة (سطر Orca في الجزء 1، الخطوة 3: اختياري الآن) | من بداية الطبقة |
-| عند كل تبديل لون (تلقائي) | من بعد التبديل مباشرة، باللون الجديد |
-| بداية طباعة جديدة / نهاية الطباعة بنجاح | تُحذف النقطة |
-| إلغاء الطباعة | النقطة **تبقى** (لتستكمل لاحقًا) |
-
-### حدود يجب أن تعرفها
-
-- **ما طُبع في آخر دقيقة قبل التوقف يُطبع مرة ثانية فوق نفسه.** أثر صغير في مكان واحد.
-- 🆕 **نقطة الحفظ كل دقيقة قد تقع أثناء سحب الخيط (retraction):** أول خط بعد الاستكمال قد يخرج بكتلة صغيرة (0.8 مم خيط زيادة). لا خطر على القطعة.
-- **بعد انقطاع الكهرباء يبرد السرير.** قد تنفصل القطعة. لا تكمل إن تحركت.
-- **ملف في مجلد فرعي، أو في اسمه علامات اقتباس → لا تُحفظ نقاط.** ارفع الملفات إلى المجلد الرئيسي.
-- **ارتفاع أكثر من 368 مم → لا استكمال** (لا مكان للصخ بجانب القطعة هناك).
-- إن انقطعت الكهرباء **أثناء** كتابة نقطة الحفظ (جزء من الثانية)، قد يرفض Klipper التشغيل برسالة `Unable to parse existing variable file`.
-  الحل: Mainsail ← **Machine** ← افتح `variables.cfg` ← احذف السطر الذي يبدأ بـ `cs_resume` ← **Save & Restart**.
-
-### الإلغاء
-
-اضغط **Cancel...**:
-
-| متى | الأزرار |
-|---|---|
-| قبل التحميل | **Cancel print** — الخيط القديم خارج الفوهة، يمكنك سحبه بيدك |
-| بعد التحميل | **Cancel print** — الخيط يبقى داخل الفوهة. **لا تسحبه وهو بارد**؛ استعمل `UNLOAD_FILAMENT` لاحقًا (يسخّن أولًا) |
-|  | **Unload hot + cancel** — يُخرج الخيط وهو ساخن، ثم يلغي |
-|  | **Back to the swap** — رجوع |
+> Tip: hold the extruder body with your other hand while you push the filament.
 
 ---
 
-## 🆕 الجزء 4 — التنبيهات (هاتف + صفارة)
+## 🆕 Part 3 — Resuming a stopped print
 
-تصل رسالة عند كل مرحلة تحتاجك:
+Works after: a **cancel** at a color swap, a **moved head** followed by a cancel, or a **power cut**.
 
-| متى | الرسالة |
+### Before you start — check with your eyes
+
+| Condition | Why |
 |---|---|
-| تبديل لون: الخيط القديم خرج | `Color swap: insert filament 2 PLA, then press Load + purge` |
-| انتهى الصخ | `Purge done: check the color, cut the strand, then Continue` |
-| الاستكمال جاهز | `Resume ready: ...` |
-| تشغيل الطابعة وفيها طباعة غير مكتملة | `Printer started with an unfinished print saved ...` |
-| نفاد الخيط / M600 | `Filament runout or M600: printer paused ...` |
-| انتهت الطباعة / خطأ / أُلغيت | `Print complete: اسم الملف` (من Moonraker) |
+| The part is still stuck to the bed and has not moved | The print continues on top of it at the same coordinates |
+| The nozzle is not touching the part | After a power cut the head may drop. Lift it gently by hand (the motors are off) |
+| The file is still on the printer with the same name | The printer continues from the same file |
 
-الرسائل تُرسل من مؤقت منفصل: إن فشل الإرسال (لا إنترنت مثلًا) **لا تتأثر الطباعة**.
+### Steps (10–15 minutes, mostly heating)
 
-### تفعيل رسائل الهاتف — Telegram (10 دقائق، مرة واحدة)
+1. 🆕 **After a power cut:** switch the printer on and wait one minute; the window opens **on its own**.
+   In the other cases: **KlipperScreen** → home screen → **Resume saved** (or in **Mainsail**: the **RESUME_SAVED_PRINT** macro).
+2. A window shows the file name, the layer and the Z height. Press **Start**.
+   - The printer heats the bed, goes **up** (Home), then comes down from the center to the front edge, and heats the nozzle.
+3. A **Resume - filament N** window appears:
+   - The right filament is loaded? → **Purge +15mm** until it comes out clean.
+   - A different filament, or none? → **Unload** → insert the right filament → **Load + purge**.
+4. **Cut** the strand at the nozzle with tweezers.
+5. Press **Continue...** (bottom left) → **Yes, continue print**. The head moves **above** the part to the saved point, then goes straight down, then continues the file.
 
-1. في Telegram ابحث عن **@BotFather** ← `/newbot` ← اختر اسمًا ← انسخ الـ **token** (مثل `123456:ABC...`).
-2. افتح البوت الجديد ← **Start** ← أرسل له أي رسالة.
-3. ابحث عن **@userinfobot** ← **Start** ← انسخ رقم **Id**.
-4. Mainsail ← **Machine** ← `moonraker.conf` ← آخر الملف ← بدّل `BOT_TOKEN` و`CHAT_ID`:
+| Other button | What it does |
+|---|---|
+| **Delete point** | Deletes the save point |
+| **Cancel resume** (in step 3) | Turns the heaters off and lifts the head. The point stays saved |
+
+### Where are the points saved?
+
+| When | Where it resumes from |
+|---|---|
+| 🆕 **Every minute while printing** (automatic, every profile) | About the same line: less than a minute is lost |
+| Start of every layer (the Orca line in Part 1, step 3: now optional) | The start of the layer |
+| At every color swap (automatic) | Right after the swap, in the new color |
+| Start of a new print / successful end of a print | The point is deleted |
+| Print cancelled | The point **stays** (so you can resume later) |
+
+### Limits you should know
+
+- **Whatever was printed in the last minute before the stop is printed a second time on top of itself.** A small mark in one spot.
+- 🆕 **The once-a-minute save point can fall during a retraction:** the first line after resuming may come out with a small blob (0.8 mm of extra filament). No risk to the part.
+- **After a power cut the bed cools down.** The part may come loose. Do not continue if it moved.
+- **A file in a subfolder, or with quotes in its name → no save points.** Upload files to the root folder.
+- **Height above 368 mm → no resume** (there is no room to purge beside the part up there).
+- If the power is cut **while** a save point is being written (a fraction of a second), Klipper may refuse to start with the message `Unable to parse existing variable file`.
+  Fix: Mainsail → **Machine** → open `variables.cfg` → delete the line that starts with `cs_resume` → **Save & Restart**.
+
+### Cancelling
+
+Press **Cancel...**:
+
+| When | Buttons |
+|---|---|
+| Before loading | **Cancel print** — the old filament is out of the nozzle, you can pull it by hand |
+| After loading | **Cancel print** — the filament stays in the nozzle. **Do not pull it while cold**; use `UNLOAD_FILAMENT` later (it heats first) |
+|  | **Unload hot + cancel** — unloads the filament while hot, then cancels |
+|  | **Back to the swap** — go back |
+
+---
+
+## 🆕 Part 4 — Alerts (phone + buzzer)
+
+A message arrives at every stage that needs you:
+
+| When | Message |
+|---|---|
+| Color swap: the old filament is out | `Color swap: insert filament 2 PLA, then press Load + purge` |
+| Purge finished | `Purge done: check the color, cut the strand, then Continue` |
+| Resume ready | `Resume ready: ...` |
+| Printer switched on with an unfinished print saved | `Printer started with an unfinished print saved ...` |
+| Filament runout / M600 | `Filament runout or M600: printer paused ...` |
+| Print finished / error / cancelled | `Print complete: file name` (from Moonraker) |
+
+The messages are sent from a separate timer: if sending fails (no internet, for example) **the print is not affected**.
+
+### Turning on phone messages — Telegram (10 minutes, once)
+
+1. In Telegram search for **@BotFather** → `/newbot` → choose a name, then a username that ends in `bot` → copy the **token** (numbers, then `:`, then letters).
+2. Open your new bot → **Start** → send it any message (a bot cannot start a chat with you).
+3. In a browser open `https://api.telegram.org/bot<TOKEN>/getUpdates` (the word `bot` directly followed by the token, no space or `/`).
+   Find `"chat":{"id":` → the number after it is your **CHAT_ID**. If `"result":[]` is empty, send the bot another message and refresh.
+4. Mainsail → **Machine** → `moonraker.conf` → end of the file → replace `BOT_TOKEN` and `CHAT_ID`:
    ```
    url: tgram://BOT_TOKEN/CHAT_ID
    ```
-   ← **Save & Restart**.
-5. اكتب في الـ Console: `TEST_ALERT` ← تصل رسالة تجربة.
+   → make sure the printer is **not printing** → **Save & Restart**.
+5. Type in the Console: `TEST_ALERT` → a test message arrives.
 
-> الـ token سرّ: لا ترسله لأحد. لإيقاف الرسائل: `variable_notify_name: ""` في `color_swap.cfg`.
+> The token is a secret: do not share it. Lost it? @BotFather → `/mybots` → your bot → **API Token**. To stop the messages: `variable_notify_name: ""` in `color_swap.cfg`.
 
-### الصفارة على اللوحة
+### Buzzer on the board
 
-تحتاج قطعة تُركَّب داخل الطابعة. الماكرو جاهز: يصفّر 3 مرات عند نفس المراحل،
-**ولا يصفّر أثناء الطباعة الفعلية** (حتى لا يترك أثرًا على القطعة).
+Needs a part fitted inside the printer. The macro is ready: it beeps 3 times at the same stages,
+**and never beeps while actually printing** (so it leaves no mark on the part).
 
-| البند | التفاصيل |
+| Item | Details |
 |---|---|
-| القطعة | **Active buzzer module** بثلاثة أطراف (VCC، GND، I/O)، يعمل على 3.3–5V، مثل KY-012 |
-| اللوحة | نسخة معدّلة من MKS Robin Nano v2.1، ومنافذها تختلف عن الأصل. لا يُعتمد أي طرف منشور |
-| المطلوب قبل التركيب | صورة واضحة للوحة الأم لتحديد طرف فارغ آمن |
-| بعد التركيب | يُضاف قسم `[output_pin beeper]` في `printer.cfg` بالطرف الصحيح، ثم `TEST_ALERT` |
+| Part | **Active buzzer module** with three pins (VCC, GND, I/O), works on 3.3–5V, e.g. KY-012 |
+| Board | A modified version of the MKS Robin Nano v2.1; its connectors differ from the original. No published pin can be trusted |
+| Needed before fitting | A clear photo of the mainboard to choose a safe free pin |
+| After fitting | Add an `[output_pin beeper]` section in `printer.cfg` with the right pin, then `TEST_ALERT` |
 
 ---
 
-## الأمان: هل ينزل الرأس تحت ارتفاع الطبقة؟
+## Safety: does the head go below the layer height?
 
-**لا.** كل حركات التبديل:
+**No.** All the swap moves:
 
-| الحركة | الاتجاه |
+| Move | Direction |
 |---|---|
-| التوقف (`PAUSE`) | للأعلى أولًا (10 مم على الأقل فوق الطبقة، وليس أقل من Z 60)، ثم إلى الأمام |
-| التحميل، الصخ، الهزّة | الخيط فقط، أو يمين/يسار — بدون حركة Z |
-| الرجوع (`RESUME`) | خط واحد إلى النقطة التي توقف عندها Orca = الطبقة + رفع Orca (0.5 مم). كل نقطة في الخط أعلى من النموذج |
-| 🆕 **Re-home** و**Start** في الاستكمال | `G28`: الأبراج تصعد للمفاتيح في الأعلى — بعيدًا عن السرير. ثم نزول عمودي من **المنتصف** إلى ارتفاع الصخ (10 مم فوق القطعة على الأقل)، ثم إلى الحافة |
-| 🆕 **Continue print** في الاستكمال | جانبيًا على ارتفاع الصخ (فوق القطعة)، ثم نزول عمودي إلى النقطة المحفوظة: نقطة تبديل = الطبقة + 0.5 مم، نقطة طبقة = سطح آخر طبقة + 0.5 مم |
+| Pause (`PAUSE`) | Up first (at least 10 mm above the layer, and not lower than Z 60), then forward |
+| Load, purge, flick | Filament only, or left/right — no Z move |
+| Return (`RESUME`) | One line to the point where Orca paused = the layer + Orca's lift (0.5 mm). Every point on the line is above the model |
+| 🆕 **Re-home** and **Start** when resuming | `G28`: the towers go up to the switches at the top — away from the bed. Then straight down from the **center** to the purge height (at least 10 mm above the part), then to the edge |
+| 🆕 **Continue print** when resuming | Sideways at the purge height (above the part), then straight down to the saved point: swap point = the layer + 0.5 mm, layer point = top of the last layer + 0.5 mm |
 
-تم التحقق بمحاكاة الماكرو (6 حالات): أدنى Z = Z لحظة التوقف في التبديل، و Z المحفوظ + 0.5 في الاستكمال من طبقة.
+Verified by simulating the macro (6 cases): lowest Z = the Z at the pause for a swap, and the saved Z + 0.5 when resuming from a layer.
 
-### ⚠ تحذير
+### ⚠ Warning
 
-**لا تترك الطابعة متوقفة أكثر من ساعة.** بعدها يطفئ Klipper المحركات والسخانات،
-فتفقد الطابعة مكان الرأس ولا يمكن إكمال الطباعة. ولا تسحب الخيط بعدها وهو بارد.
+**Do not leave the printer paused for more than an hour.** After that Klipper turns off the motors and heaters,
+the printer loses the head position, and the print cannot be finished. And do not pull the filament after that while it is cold.
 
 ---
 
-## تفاصيل تقنية
+## Technical details
 
-### الملفات
+### Files
 
-| الملف | ماذا فيه |
+| File | Contents |
 |---|---|
-| `color_swap.cfg` | الماكرو والنوافذ والإعدادات، وقفل الرأس، ونقاط الحفظ والاستكمال |
-| `macros.cfg` | `RESUME` (يتخطى دفع 1 مم ويرجع بسرعة بعد التبديل)، `CANCEL_PRINT`، و`UNLOAD_FILAMENT`/`LOAD_FILAMENT` بتسخين إجباري، و`START_PRINT`/`END_PRINT` يحذفان نقطة الحفظ |
-| `KlipperScreen.conf` | زر **Color swap** في قائمة الطباعة، و🆕 زر **Resume saved** في الشاشة الرئيسية |
-| `orca_change_filament_gcode.txt` | سطر Orca لتبديل اللون |
-| 🆕 `orca_before_layer_change_gcode.txt` | سطر Orca لنقاط الحفظ |
-| `v2-backup/` و`v3-backup/` | ملفات الإصدارين 2 و3 |
+| `color_swap.cfg` | The macro, windows and settings, head lock, save points and resume |
+| `FLSUN_V400/macros.cfg` | `RESUME` (skips the 1 mm push and returns fast after a swap), `CANCEL_PRINT`, `UNLOAD_FILAMENT`/`LOAD_FILAMENT` with forced heating, and `START_PRINT`/`END_PRINT` that delete the save point |
+| `FLSUN_V400/KlipperScreen.conf` | **Color swap** button in the print menu, and 🆕 **Resume saved** button on the home screen |
+| `orca_change_filament_gcode.txt` | Orca line for the color swap |
+| 🆕 `orca_before_layer_change_gcode.txt` | Orca line for save points |
+| `moonraker_notifier.txt` | Telegram section to paste at the end of `moonraker.conf` |
+| `ROLLBACK_v4/` | Version 4 files, to go back |
 
-نقطة الحفظ متغيّر واحد `cs_resume` في `variables.cfg` على الطابعة (يُكتب مرة في كل طبقة).
+The save point is a single variable `cs_resume` in `variables.cfg` on the printer.
 
-نسخ الرجوع للإصدار 3 (موجودة على الطابعة):
-`color_swap-ROLLBACK-v3-20261105.cfg`، `macros-ROLLBACK-before-color-swap-v4-20261105.cfg`، `KlipperScreen-ROLLBACK-before-color-swap-v4-20261105.conf`.
+### Filament accounting (no gap and no blob on resume)
 
-### حساب الخيط (لا فراغ ولا كتلة عند الاستئناف)
-
-| المرحلة | الخيط |
+| Stage | Filament |
 |---|---|
-| قبل التبديل | Orca يسحب `RETRACT` (2 مم)، و`PAUSE` يسحب 1 مم |
-| الإخراج | دفع 3 مم + ما سُحب ← سحب سريع 13 مم ← انتظار 3 ث ← سحب الباقي (طريقة Marlin لتشكيل رأس نظيف) |
-| بعد الصخ | سحب `hold` = الأكبر من `RETRACT` و1 مم |
-| Continue | دفع `hold` + 1.5 ← سحب `RETRACT` بالضبط |
-| أول الطباعة | Orca يدفع `RETRACT` ← الفوهة ممتلئة تمامًا |
+| Before the swap | Orca retracts `RETRACT` (2 mm), and `PAUSE` retracts 1 mm |
+| Unload | Push 3 mm + what was retracted → fast pull 13 mm → wait 3 s → pull the rest (Marlin's method to form a clean tip) |
+| After the purge | Retract `hold` = the larger of `RETRACT` and 1 mm |
+| Continue | Push `hold` + 1.5 → retract exactly `RETRACT` |
+| Start of printing | Orca pushes `RETRACT` → the nozzle is exactly full |
 
-### الإعدادات — في `_COLOR_SWAP_CFG`
+### Settings — in `_COLOR_SWAP_CFG`
 
-| المتغير | الافتراضي | المعنى |
+| Variable | Default | Meaning |
 |---|---|---|
-| `park_x / park_y / park_lift / park_min_z` | 0 / -140 / 10 / 60 | مكان الصخ وارتفاعه |
-| `unload_mm / unload_purge_mm / unload_dwell_ms` | 40 / 3 / 3000 | الإخراج |
-| `load_mm / load_slow_mm` | 40 / 15 | التحميل (آخر 15 مم ببطء) |
-| `purge_min / purge_max / purge_default` | 25 / 250 / 50 | حدود كمية الصخ |
-| `purge_material_change` | 15 | إضافة عند تغيير النوع |
-| 🆕 `purge_to_main_extra` | 60 | إضافة عند الرجوع للفيلمنت الأساسي (السطر 87) |
-| 🆕 `purge_pulse_mm / purge_pulse_retract` | 20 / 2 | الصخ على دفعات (0 = صخ واحد متصل) |
-| `purge_speed` | 180 | 3 مم/ث |
-| `purge_buttons` | [15, 30, 60] | أزرار الصخ الإضافي |
-| `settle_mm` | 8 | صخ بالحرارة الجديدة عند التبريد (PETG ← PLA) |
-| `reprime_mm` | 1.5 | ملء الفوهة عند Continue. ارفعه إلى 2–3 إن بقيت البداية ضعيفة |
-| `flick / flick_mm` | **0** / 8 | الهزّة الجانبية (0 = إيقاف، الافتراضي في الإصدار 5) |
-| `resume_speed` | 250 | سرعة الرجوع مم/ث |
-| `heat_band` | 3 | الانتظار ينتهي عندما تكون الحرارة ضمن ± هذا الرقم |
-| `temp_pla / temp_petg` | 215 / 240 | حرارة الأزرار |
-| `wait_timeout` | 3600 | ثوانٍ قبل إطفاء المحركات |
-| 🆕 `hold_boost` | 1 | قفل الرأس أثناء الانتظار (0 = إيقاف) |
-| 🆕 `hold_steppers` | stepper_a/b/c | المحركات التي تُقفل |
-| `resume_lift` | 0.5 | ارتفاع التوقف فوق نقطة الطبقة قبل إكمال الملف |
-| 🆕 `autosave_s` | 60 | حفظ نقطة الاستكمال كل هذه الثواني (0 = إيقاف) |
-| 🆕 `boot_prompt` | 1 | فتح نافذة الاستكمال وحدها بعد تشغيل الطابعة |
-| 🆕 `first_layer_wipe` | 1 | خط التنظيف في الطبقة الأولى فقط (0 = إيقاف) |
-| 🆕 `wipe_radius / wipe_step / wipe_z / wipe_margin` | 145 / 1.2 / 0.3 / 10 | مكان خط التنظيف وارتفاعه والمسافة الآمنة عن النموذج |
+| `park_x / park_y / park_lift / park_min_z` | 0 / -140 / 10 / 60 | Purge spot and height |
+| `unload_mm / unload_purge_mm / unload_dwell_ms` | 40 / 3 / 3000 | Unload |
+| `load_mm / load_slow_mm` | 40 / 15 | Load (last 15 mm slow) |
+| `purge_min / purge_max / purge_default` | 25 / 250 / 50 | Purge amount limits |
+| `purge_material_change` | 15 | Added when the type changes |
+| 🆕 `purge_to_main_extra` | 60 | Added when going back to the main filament (line 87) |
+| 🆕 `purge_pulse_mm / purge_pulse_retract` | 20 / 2 | Pulsed purge (0 = one continuous purge) |
+| `purge_speed` | 180 | 3 mm/s |
+| `purge_buttons` | [15, 30, 60] | Extra purge buttons |
+| `settle_mm` | 8 | Purge at the new temperature when cooling (PETG → PLA) |
+| `reprime_mm` | 1.5 | Nozzle fill at Continue. Raise to 2–3 if the start is still weak |
+| `flick / flick_mm` | **0** / 8 | Side flick (0 = off, the default in version 5) |
+| `resume_speed` | 250 | Return speed, mm/s |
+| `heat_band` | 3 | The wait ends when the temperature is within ± this number |
+| `temp_pla / temp_petg` | 215 / 240 | Button temperatures |
+| `wait_timeout` | 3600 | Seconds before the motors are turned off |
+| 🆕 `hold_boost` | 1 | Head lock while waiting (0 = off) |
+| 🆕 `hold_steppers` | stepper_a/b/c | Motors that are locked |
+| `resume_lift` | 0.5 | Stop height above the layer point before continuing the file |
+| 🆕 `autosave_s` | 60 | Save the resume point every this many seconds (0 = off) |
+| 🆕 `boot_prompt` | 1 | Open the resume window on its own after the printer starts |
+| 🆕 `first_layer_wipe` | 1 | Wipe line on the first layer only (0 = off) |
+| 🆕 `wipe_radius / wipe_step / wipe_z / wipe_margin` | 145 / 1.2 / 0.3 / 10 | Wipe line position, height, and safe distance from the model |
+| 🆕 `notify_name` | phone | Moonraker notifier name for phone messages ("" = off) |
 
-### مُتحقَّق منه
+### Verified
 
-- `PURGE` يصل من Orca: في ملف `Stmap_holder_body+2color_PETG_51m15s.gcode` القيم `PURGE=43.155` و`PURGE=22.4506`.
-- حرارة السرير في بروفايل COLOR_SWAP = `by_first_filament`.
-- Orca يقبل سطر `_CS_CHECKPOINT`: ملف مُقطَّع يوم 2026-11-05 فيه 44 سطرًا بأرقام فيلمنت صحيحة (الطبقة 36: `SLOT=2 MATERIAL=PLA`).
-- الإصدار 4 مثبّت على الطابعة يوم 2026-11-05: لا تحذيرات، المعايرة لم تتغير، نافذة `RESUME_SAVED_PRINT` تظهر.
+- `PURGE` arrives from Orca: in a sliced file the values were `PURGE=43.155` and `PURGE=22.4506`.
+- Bed temperature in the COLOR_SWAP profile = `by_first_filament`.
+- Orca accepts the `_CS_CHECKPOINT` line: a file sliced on 2026-11-05 has 44 lines with correct filament numbers (layer 36: `SLOT=2 MATERIAL=PLA`).
+- Version 4 installed on the printer on 2026-11-05: no warnings, calibration unchanged, the `RESUME_SAVED_PRINT` window appears.
+- Telegram messages reach the phone (`TEST_ALERT`, 2026-11-06).
 
-### غير مُتحقَّق منه بعد
+### Not verified yet
 
-- زر Re-home والاستكمال الكامل على طباعة حقيقية (جُرّبا بالمحاكاة فقط).
+- The Re-home button and a full resume on a real print (tested in simulation only).
 
-## الرخصة
+## License
 
-MIT — انظر ملف [`LICENSE`](LICENSE). استخدمه وعدّله بحرية مع ذكر المصدر.
+MIT — see [`LICENSE`](LICENSE). Use and modify it freely, with credit.
