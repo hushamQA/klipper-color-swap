@@ -1,0 +1,10 @@
+# Phone notifications (Telegram) for the FLSUN V400 - added 2026-11-06.
+# color_swap.cfg sends one message per stage (swap waiting, purge done, resume
+# ready, saved print found, runout). Print complete / error / cancelled come from
+# Moonraker itself. Replace BOT_TOKEN and CHAT_ID with yours (README, part 4),
+# then Save & Restart. Until then nothing is sent and nothing else changes.
+[notifier phone]
+url: tgram://BOT_TOKEN/CHAT_ID
+events: complete, error, cancelled, remote_action
+title: FLSUN V400
+body: {event_message if event_name == "remote_action" else ("Print " ~ event_name ~ ": " ~ event_args[1].filename)}

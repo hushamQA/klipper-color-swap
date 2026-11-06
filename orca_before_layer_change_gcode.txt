@@ -1,0 +1,4 @@
+;BEFORE_LAYER_CHANGE
+;[layer_z]
+G92 E0
+_CS_CHECKPOINT LAYER={layer_num + 1} TOTAL={total_layer_count} SLOT={current_extruder + 1} MATERIAL={filament_type[current_extruder]}
