@@ -2,114 +2,142 @@
 
 # تثبيت ماكرو COLOR_SWAP — على أي طابعة Klipper
 
-الإصدار 5 — 2026-11-06 — لطابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2)
+الإصدار 6.2 — 2026-11-12 — كُتب على طابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2).
+طابعات الدلتا والكارتيزي و CoreXY والسرير المتحرك تستعمل نفس الملف `color_swap.cfg`.
+
+> **حالة الإصدار 6.2:** مثبّت على FLSUN V400 يوم 2026-11-12 (الإعدادات تُحمَّل، وكل نوافذ الإعدادات استُعملت على الطابعة)، وشُغّل في محاكي (262 فحصًا على دلتا وكارتيزي و CoreXY).
+> **لم يُطبع به تبديل لون حقيقي بعد.** نفّذ أول تبديل على نموذج تجربة صغير (`test/`) وابقَ بجانب الطابعة.
+> ملفات هذه الحزمة مطابقة حرفيًا لما على الطابعة.
 
 ## المحتويات
 
 | الملف | ماذا تفعل به |
 |---|---|
 | `color_swap.cfg` | **الماكرو نفسه** — يُرفع لكل طابعة |
-| `FLSUN_V400/macros.cfg` و`FLSUN_V400/KlipperScreen.conf` | ملفات جاهزة لطابعة FLSUN V400 فقط (فيها أسطر الربط وزرّا Color swap وResume saved) |
+| `FLSUN_V400/macros.cfg` و`FLSUN_V400/KlipperScreen.conf` | ملفات جاهزة لطابعة FLSUN V400 فقط |
+| 🆕 `KlipperScreen_color_swap.conf` | أزرار KlipperScreen الأربعة، تُلصق في `KlipperScreen.conf` عندك (للطابعات الأخرى) |
 | `orca_change_filament_gcode.txt` | سطر OrcaSlicer لتبديل اللون |
-| `moonraker_notifier.txt` | 🆕 قسم رسائل الهاتف (Telegram) يُلصق في آخر `moonraker.conf` |
-| `orca_before_layer_change_gcode.txt` | 🆕 سطر OrcaSlicer لنقاط الحفظ (استكمال بعد انقطاع الكهرباء) |
+| `orca_before_layer_change_gcode.txt` | سطر OrcaSlicer لنقاط الحفظ (اختياري) |
+| `moonraker_notifier.txt` | رسائل الهاتف (Telegram)، يُلصق في آخر `moonraker.conf` |
+| 🆕 `telegram_bot.txt` | التحكم عن بعد من Telegram: خطوات التثبيت و`telegram.conf` وقائمة الأوامر |
 | `README.ar.md` / `README.md` | طريقة الاستعمال خطوة بخطوة (عربي / إنجليزي) |
 | `INSTALL.ar.md` / `INSTALL.md` | هذا الملف (عربي / إنجليزي) |
 | `test/` | نموذج تجربة: لوح + حرف T |
-| `ROLLBACK_v4/` | 🆕 ملفات الطابعة قبل الإصدار 5 (للرجوع) |
-| `SHA256SUMS.txt` | بصمة كل ملف — للتأكد أن الملف سليم بعد الرفع |
-
-ملفات `ROLLBACK_v4/` منسوخة من الطابعة نفسها (الإصدار 4 العامل). ملفات الإصدار 5 مطابقة لما رُفع إلى الطابعة يوم 2026-11-06.
+| `ROLLBACK_v5.1/` | 🆕 ملفات الإصدار 5.1 (للرجوع) |
+| `SHA256SUMS.txt` | بصمة كل ملف |
 
 ---
 
 ## الحالة 1 — طابعة FLSUN V400 (10 دقائق)
 
 1. افتح **Mainsail** ← **Machine** (ملفات الإعدادات).
-2. خذ نسخة احتياطية: نزّل `macros.cfg` و`printer.cfg` إلى جهازك.
-3. ارفع `color_swap.cfg`.
+2. خذ نسخة احتياطية: نزّل `color_swap.cfg` و`macros.cfg` و`KlipperScreen.conf` و`printer.cfg` إلى جهازك.
+3. ارفع `color_swap.cfg` مكان الموجود.
 4. ارفع `FLSUN_V400/macros.cfg` مكان `macros.cfg` الموجود.
-   > إن كان `macros.cfg` في طابعتك مختلفًا (عدّلته بنفسك)، لا ترفعه — اتبع الخطوتين 2 و3 من الحالة 2 بدلًا من ذلك.
-5. افتح `printer.cfg` وأضف هذا السطر **تحت** `[include macros.cfg]` مباشرة:
-   ```
-   [include color_swap.cfg]
-   ```
-6. ارفع `KlipperScreen.conf` مكان الموجود (يضيف زر **Color swap** في قائمة الطباعة)، ثم أعد تشغيل KlipperScreen.
-7. 🆕 افتح `moonraker.conf` والصق محتوى `moonraker_notifier.txt` في **آخره** (لا تستبدل الملف كاملًا).
-   ثم بدّل `BOT_TOKEN` و`CHAT_ID` (الخطوات في [`README.ar.md`](README.ar.md)، الجزء 4).
+   > الملفان يجب أن يتغيّرا **معًا**: الإصدار 6 يتوقع أن `RESUME` يدفع 1 مم (الإصدار 5 كان يتخطاه).
+   > إن كان `macros.cfg` عندك معدّلًا بيدك، انظر «التحديث من الإصدار 5» في الأسفل.
+5. يجب أن يكون في `printer.cfg` السطر `[include color_swap.cfg]` **تحت** `[include macros.cfg]` مباشرة (موجود إن كان الإصدار 5 مثبتًا).
+6. ارفع `FLSUN_V400/KlipperScreen.conf` مكان الموجود (يضيف زر **Color swap settings**)، ثم أعد تشغيل KlipperScreen.
+7. رسائل الهاتف: `moonraker_notifier.txt` كما هو (لا تغيير إن كانت الرسائل تصل في الإصدار 5.1).
 8. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
-9. **التجربة:** اكتب في الـ Console:
+9. **التجربة** — اكتب في الـ Console:
    ```
-   COLOR_SWAP
+   COLOR_SWAP_CHECK
    ```
-   الرد الصحيح: `COLOR_SWAP only works during a print.` ← التثبيت ناجح، ولم يتحرك شيء.
+   يعرض حدود الطابعة، ونقطة الصخ، والحساس والمحركات التي وجدها، وأي شيء ناقص. لا يتحرك شيء.
+   ثم `COLOR_SWAP` يجب أن يرد: `COLOR_SWAP only works during a print.`
+
+### التحديث من الإصدار 5 وعندك macros.cfg خاص بك
+
+تغيّر مكانان فقط في `macros.cfg`:
+
+- **`RESUME`**: احذف هذه الأسطر الثلاثة (التبديل الآن يسحب 1 مم زيادة بدلها، فيجب أن يبقى الدفع):
+  ```
+  {% if swap %}
+  {% set e = 0 %}
+  {% endif %}
+  ```
+- **`M600`** (اختياري، لنافذة نفاد الخيط): انظر `M600` في `FLSUN_V400/macros.cfg` — الجزء الذي يبدأ بـ `COLOR_SWAP RUNOUT=1`.
 
 ---
 
-## الحالة 2 — طابعة Klipper أخرى (20 دقيقة)
+## الحالة 2 — طابعة Klipper أخرى (15 دقيقة)
 
-### قبل البدء: تأكد أن `printer.cfg` فيه هذه الأقسام
+### 1. أقسام في `printer.cfg`
 
 ```
 [pause_resume]
 [respond]
-[exclude_object]
-[gcode_arcs]
+[virtual_sdcard]      (موجود في كل تثبيت Mainsail / Fluidd)
+[save_variables]
+filename: ~/printer_data/config/variables.cfg
+[exclude_object]      (لخط التنظيف في الطبقة الأولى)
+[gcode_arcs]          (للدلتا فقط، لخط التنظيف في الطبقة الأولى)
 ```
 
-أي قسم غير موجود ← أضفه كما هو (سطر واحد لكل قسم).
+أضف ما ليس عندك.
 
-### الخطوات
+### 2. الرفع والتضمين
 
-1. ارفع `color_swap.cfg` وأضف `[include color_swap.cfg]` إلى `printer.cfg`.
-2. **ماكرو `RESUME`:** أضف هذا السطر **أول سطر** داخل `gcode:`:
-   ```
-   _COLOR_SWAP_ON_RESUME
-   ```
-3. **ماكرو `CANCEL_PRINT`:** أضف هذا السطر **قبل** `CANCEL_PRINT_BASE`:
-   ```
-   _COLOR_SWAP_RESET
-   ```
-   **ماكرو البداية (`START_PRINT` أو `PRINT_START`):** أضف في أوله:
-   ```
-   _CS_CLEAR_CHECKPOINT
-   ```
-   **ماكرو النهاية (`END_PRINT` أو `PRINT_END`):** أضف في آخره (يوقف الحفظ التلقائي بعد انتهاء الطباعة):
-   ```
-   _CS_CLEAR_CHECKPOINT DONE=1
-   ```
-   > إن كان ماكرو البداية عندك ينتهي بسحب خيط (`G1 E-…`) بعد خط التنظيف: احذفه.
-   > Orca يسحب ويرجع ما سحبه هو فقط، فيبدأ الـ skirt ناقصًا ومتقطعًا.
-   > الاستكمال بعد التوقف (`RESUME_SAVED_PRINT`) يحتاج `[save_variables]` في `printer.cfg`،
-   > ويعمل على طابعات **الدلتا فقط** (الـ Home فيها يصعد للأعلى). في الطابعات الأخرى الـ Home ينزل على القطعة، فالماكرو يرفض.
-   مثال:
-   ```
-   [gcode_macro RESUME]
-   rename_existing: RESUME_BASE
-   gcode:
-     _COLOR_SWAP_ON_RESUME
-     ...باقي الماكرو كما هو...
-   ```
-   > مُستحسن: إن كان `RESUME` عندك يدفع الخيط (`G1 E…`) قبل `RESUME_BASE`، تخطَّ هذا الدفع بعد التبديل
-   > وأضف `VELOCITY=250` إلى `RESUME_BASE` — انظر `RESUME` في `FLSUN_V400/macros.cfg` كمثال.
-   > إن كان `RESUME` و`CANCEL_PRINT` من ملف `mainsail.cfg` أو `fluidd.cfg` (لا يُعدَّل)،
-   > انسخ الماكرو إلى ملف ماكروهاتك أولًا، ثم أضف السطر.
-4. افتح `color_swap.cfg` وعدّل قسم `[gcode_macro _COLOR_SWAP_CFG]`:
+ارفع `color_swap.cfg` وأضف `[include color_swap.cfg]` إلى `printer.cfg`، **بعد** تضمين ملف ماكروهاتك (أو `mainsail.cfg`).
 
-   | المتغير | ماذا تضع |
-   |---|---|
-   | `park_x / park_y` | نقطة الصخ: فوق حافة السرير، بعيدًا عن القطعة |
-   | `sensor` | اسم حساس الخيط في `printer.cfg` (إن لم يوجد حساس فلا مشكلة) |
+### 3. لا شيء تعدّله في الملف
 
-   **مثال سرير مربع 235×235 مم** (إحداثيات من 0 إلى 235):
-   ```
-   variable_park_x: 117.5
-   variable_park_y: 10
-   ```
-5. **Save & Restart**، ثم التجربة كما في الخطوة 9 من الحالة 1.
+الإصدار 6 يتعرّف على الطابعة وحده:
 
-> الماكرو يستدعي `PAUSE` الموجود في طابعتك لرفع الرأس وإبعاده.
-> تأكد أن `PAUSE` عندك يرفع الرأس فعلًا قبل أول طبعة.
+| ماذا | كيف |
+|---|---|
+| نقطة الصخ | منتصف السرير في X (الدلتا: 0)، و`park_edge` (12 مم) داخل حد Y الأمامي |
+| خط تنظيف الطبقة الأولى | الدلتا: قوس داخل الحد الأمامي الأيمن. غيرها: خط مستقيم بمحاذاة الحد الأمامي |
+| حساس الخيط | أول `[filament_switch_sensor]` أو `[filament_motion_sensor]` موجود |
+| قفل الرأس | كل `stepper_*` له `hold_current` في قسم TMC |
+| التحميل الطويل (bowden) | يُقسَّم إلى قطع أقصر من `max_extrude_only_distance` |
+
+كل ما عدا ذلك يُغيَّر من الشاشة: **Color swap settings** (الخطوة 6)، أو الماكرو `COLOR_SWAP_SETTINGS` في Mainsail.
+لطابعة bowden: اضبط **Printer setup ← Filament path ← Length pulled out / Length pushed in** على طول الأنبوب.
+
+### 4. قيمة واحدة تتحقق منها: ماذا يدفع RESUME عندك
+
+الماكرو يستدعي `PAUSE` و`RESUME` **الموجودين عندك**. في Mainsail و Fluidd: سحب 1 مم عند التوقف ودفع 1 مم عند الإكمال.
+الإعداد **Printer setup ← This printer ← What RESUME pushes by itself** (`pause_retract_mm`، الافتراضي 1) يجب أن يساوي هذا الرقم. اجعله 0 إن كان `RESUME` عندك لا يدفع شيئًا.
+
+### 5. أسطر الربط (مستحسنة، غير إلزامية)
+
+بدونها يعمل الماكرو: يلاحظ الإلغاء خلال 10 ثوانٍ، وبداية طباعة جديدة أو نهايتها خلال دقيقة.
+معها يصير أشد أمانًا (ضغط `RESUME` بلا خيط محمَّل يُرفض):
+
+| الماكرو | أضف | أين |
+|---|---|---|
+| `RESUME` | `_COLOR_SWAP_ON_RESUME` | أول سطر في `gcode:` |
+| `CANCEL_PRINT` | `_COLOR_SWAP_RESET` | قبل `CANCEL_PRINT_BASE` |
+| `START_PRINT` / `PRINT_START` | `_CS_CLEAR_CHECKPOINT` | أول سطر |
+| `END_PRINT` / `PRINT_END` | `_CS_CLEAR_CHECKPOINT DONE=1` | آخر سطر |
+| حساس الخيط | `runout_gcode: COLOR_SWAP_RUNOUT` | في قسم الحساس (نفاد الخيط يفتح نافذة التبديل) |
+
+> إن كان `RESUME` و`CANCEL_PRINT` من `mainsail.cfg` أو `fluidd.cfg` (لا يُعدَّل)، انسخ الماكرو إلى ملفك أولًا.
+
+### 6. أزرار KlipperScreen
+
+افتح `KlipperScreen.conf` عندك، والصق محتوى `KlipperScreen_color_swap.conf` **فوق** السطر
+`#~# --- Do not edit below this line...`، ثم أعد تشغيل KlipperScreen.
+
+### 7. Save & Restart ثم التحقق
+
+```
+COLOR_SWAP_CHECK
+```
+
+اقرأ كل سطر: نقطة الصخ يجب أن تكون فوق حافة السرير وبعيدة عن مكان الطباعة، و«Missing sections» يجب أن تقول none.
+
+### طابعتك ليست دلتا؟ اقرأ هذا عن الاستكمال بعد انقطاع الكهرباء
+
+`RESUME_SAVED_PRINT` يجب أن يعرف مكان الرأس دون أن يلمس القطعة.
+الدلتا تعمل Home للأعلى، فيعمل دائمًا. في الطابعات الأخرى Home لمحور Z **ينزل على القطعة**، لذلك:
+
+| الحالة | النتيجة |
+|---|---|
+| المحركات ما زالت تعمل (إلغاء عند تبديل، بلا إعادة تشغيل) | يعمل: بلا Home أصلًا |
+| بعد انقطاع الكهرباء أو إعادة التشغيل | يُرفض — إلا إذا فعّلت **Printer setup ← This printer ← After a power cut trust Z** وكان في `printer.cfg` القسم `[force_move]` وفيه `enable_force_move: True`. عندها Home لـ X و Y فقط، و Z يُعتبر كما كان. استعمله فقط إن كان السرير أو الجسر عندك لا يتحرك فعلًا بلا كهرباء. **غير مجرَّب.** |
 
 ---
 
@@ -122,25 +150,30 @@
    ```
 3. **Process** ← ابحث عن **Prime tower** ← أطفئ **Enable**.
 4. **حرارة السرير**: ابحث عن `bed temperature` واختر **By First filament**.
-5. 🆕 **Printer settings** ← **Machine G-code** ← **Before layer change G-code** ← أضف في آخره (اترك الموجود):
+5. اختياري (الإصدار 6 يحفظ نقطة كل دقيقة وحده): **Printer settings** ← **Machine G-code** ← **Before layer change G-code** ← أضف في آخره:
    ```
    _CS_CHECKPOINT LAYER={layer_num + 1} TOTAL={total_layer_count} SLOT={current_extruder + 1} MATERIAL={filament_type[current_extruder]}
    ```
-   > خطأ عند التقطيع؟ احذف `SLOT=…` و`MATERIAL=…` واترك الباقي.
 6. احفظ البروفايلين.
 
 ---
 
-## الرجوع للإصدار 4 (FLSUN V400)
+## التحكم عن بعد (اختياري)
 
-1. ارفع الملفين من `ROLLBACK_v4/` مكان الموجودين: `color_swap.cfg` و`macros.cfg`.
-2. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
-3. Orca لا يحتاج تغييرًا.
+اتبع `telegram_bot.txt`، ثم فعّل **Color swap settings ← Alerts ← Telegram answer buttons**.
 
 ---
 
-## إزالة الماكرو (الرجوع للوضع السابق)
+## الرجوع للإصدار 5.1 (FLSUN V400)
+
+1. ارفع الملفات من `ROLLBACK_v5.1/` مكان الموجودة: `color_swap.cfg` و`macros.cfg` و`KlipperScreen.conf`.
+2. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
+3. Orca لا يحتاج تغييرًا. الإعدادات المحفوظة (`cs_set` في `variables.cfg`) يتجاهلها الإصدار 5.1.
+
+---
+
+## إزالة الماكرو
 
 1. احذف السطر `[include color_swap.cfg]` من `printer.cfg`.
-2. احذف الأسطر `_COLOR_SWAP_ON_RESUME` و`_COLOR_SWAP_RESET` و`_CS_CLEAR_CHECKPOINT`، وسطر `_CS_CHECKPOINT` من Orca.
+2. احذف أسطر الربط (`_COLOR_SWAP_ON_RESUME`، `_COLOR_SWAP_RESET`، `_CS_CLEAR_CHECKPOINT`، `COLOR_SWAP_RUNOUT`)، وجزء `COLOR_SWAP RUNOUT=1` من `M600`، وأسطر Orca.
 3. **Save & Restart**.

@@ -1,0 +1,48 @@
+# Remote control from Telegram - COLOR_SWAP version 6.2.
+#
+# Two separate things use Telegram. They can share one bot token:
+#   1. Moonraker [notifier]  (moonraker_notifier.txt)  - messages only, printer -> phone.
+#   2. moonraker-telegram-bot (this file)               - commands, phone -> printer,
+#      plus photos from the camera. This is what lets you answer a waiting color swap.
+#
+# INSTALL (once, over SSH on the printer):
+#   cd ~
+#   git clone https://github.com/nlef/moonraker-telegram-bot.git
+#   cd moonraker-telegram-bot
+#   ./scripts/install.sh
+# (or KIAUH > Install > Telegram Bot). The script asks where to put telegram.conf:
+# choose the Klipper config folder (~/printer_data/config).
+# Moonraker needs [history] in moonraker.conf, Klipper needs [respond] in printer.cfg.
+#
+# Then put the lines below into telegram.conf, restart the bot
+#   sudo systemctl restart moonraker-telegram-bot
+# and switch on  Color swap settings > Alerts > Telegram answer buttons.
+
+[bot]
+server: localhost
+bot_token: BOT_TOKEN
+chat_id: CHAT_ID
+
+# Optional: a photo with /status, so you can look at the nozzle before CS_CONTINUE.
+#[camera]
+#host: http://localhost:8080/?action=stream
+
+[telegram_ui]
+# The permanent keyboard under the chat. Macro names in UPPERCASE.
+buttons: [status,pause,cancel,resume],[CS_STATUS,CS_KEEP,CS_WAIT],[CS_CONTINUE,CS_PURGE,CS_CANCEL]
+# Ask "are you sure?" before these.
+require_confirmation: cancel, emergency, shutdown, CS_CANCEL, CS_CONTINUE
+
+# COMMANDS (type them in the chat, upper or lower case, or tap the buttons that
+# come under every color swap message):
+#   /cs_status    where the swap stands, nozzle temperature, what you can send next
+#   /cs_wait      "I am coming": auto continue is switched off for this swap
+#   /cs_keep      no swap: the print continues now with the color in the nozzle
+#   /cs_unload    pull the old filament out
+#   /cs_load      load the filament someone inserted, and purge it
+#   /cs_purge     purge 30 mm more
+#   /cs_continue  the swap is done: continue the print
+#   /cs_cancel    cancel the print
+# Any other macro works the same way, and  /gcode COLOR_SWAP_CHECK  runs any command.
+#
+# Only chat_id can talk to the bot. Keep the token secret.

@@ -1,14 +1,34 @@
 **English** | [العربية](README.ar.md)
 
-# Multi-color printing on a single-extruder printer — FLSUN V400 (version 5)
+# Multi-color printing on a single-extruder printer — any Klipper printer (version 6.2)
 
 **One** print file. Whenever the print needs a new color, the printer pauses on its own and a window appears on the screen.
 You swap the filament, press a button, and the print continues.
 
-> 🎬 **Tutorial video (2 minutes, Arabic):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
-> Recorded on **version 2**: the install steps are the same, but some buttons have changed (Continue is now on the left, and the purge buttons are now 15 / 30 / 60 mm). This file is the correct reference.
-
 Installation: [`INSTALL.md`](INSTALL.md)
+
+> 🎬 **Tutorial video (2 minutes, Arabic):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
+> Recorded on **version 2**: the idea is the same, but the windows have changed since (Continue is on the left, purge buttons 15 / 30 / 60 mm, and version 6 added the settings window). This file is the correct reference.
+
+## What's new in version 6 (2026-11-11)
+
+> Version 6.2 is installed on the FLSUN V400 (2026-11-12): the config loads, and every settings window was opened and used on the printer. **A real color swap has not been printed with it yet** — do the first one on the small test model and stay next to the printer.
+
+| Problem | Fix |
+|---|---|
+| Changing a setting meant editing the file and restarting | **Settings window on the screen**: KlipperScreen → **Color swap settings**. Every number, with − / + buttons, kept after a restart (Part 5) |
+| The macro only fitted the FLSUN V400 | **Any printer**: park point, wipe line, sensor and motors are worked out from the printer itself. `COLOR_SWAP_CHECK` shows what it found |
+| The old filament was always pulled out at once | `auto_unload` can be switched **off**: the window then opens with an **Unload** button and a **Keep current color** button |
+| Nobody home at a swap = the print waits | `auto_continue_min`: no button for N minutes → **the print goes on with the current color** (Part 6) |
+| After one hour of waiting the motors switched off and the print was lost | The nozzle cools to standby after 5 min and switches off after 60 min, but **the bed and the motors stay on** for 8 hours. Any button reheats |
+| One phone message, easy to miss | A reminder every 10 minutes while a swap waits |
+| No way to answer from outside | **Remote commands** `CS_STATUS`, `CS_KEEP`, `CS_WAIT`, `CS_CONTINUE`, … and Telegram buttons through moonraker-telegram-bot (Part 6) |
+| A runout used the old plain M600 | Runout and M600 open **the same window** for the same filament (tip forming, Load + purge, alerts) |
+| Load + purge with no filament inserted purged air | The filament sensor is checked first; **Load anyway** overrides |
+| Only PLA and PETG buttons | Five presets: PLA, PETG, ABS, ASA, TPU. TPU is loaded and purged at half speed |
+| A power cut lost the print's main filament, so the +60 mm purge went to the wrong swap | The main filament, the filament in the nozzle and the counters are **saved in the resume point** |
+| Bowden printers: a 700 mm load is refused by Klipper | Long moves are split into pieces under `max_extrude_only_distance` |
+| No numbers | The window title counts the swaps; the end of the print reports swaps, purged filament and waiting time |
 
 ## What's new in version 5 (2026-11-06)
 
@@ -87,11 +107,7 @@ Example: PLA → PETG (back to the main filament) = 25 + 15 + 60 = **100 mm**, i
 The "main filament" is the one the print **started** with (the old filament at the first swap), not a fixed type.
 If a print starts with PLA, the +60 is added when going back to PLA.
 
-**🆕 To change the +60 by hand:** `color_swap.cfg` → line 87:
-```
-variable_purge_to_main_extra: 60
-```
-Change the number → Save & Restart. (Line 81 `purge_material_change` = the amount added when the type changes; line 94 `purge_pulse_mm` = pulse size, 0 = no pulses.)
+**To change the amounts:** **Color swap settings → Purge amount** (LOW / NORMAL / HIGH), or one number at a time under **Advanced → Purge details** (Part 5). No restart is needed.
 
 > For comparison: Bambu users report about 800 mm³ (≈ 330 mm) for a PLA → PETG change. If the layer is still brittle after the change, raise the number to 120–200.
 
@@ -254,6 +270,128 @@ Needs a part fitted inside the printer. The macro is ready: it beeps 3 times at 
 
 ---
 
+## 🆕 Part 5 — The settings window
+
+**KlipperScreen**: home screen → **Color swap settings** (also in the print menu). **Mainsail**: the macro `COLOR_SWAP_SETTINGS`.
+Every change applies at once (no restart) and is kept in `variables.cfg`.
+
+### The first window — what you change from print to print
+
+| Button | What it does |
+|---|---|
+| **I am HOME / I am AWAY** | One tap. HOME: every swap waits for you. AWAY: a swap waits the away time, then the print goes on with the color it has |
+| **Away: continue by itself after N min** | The away time (5 min). Changing it while HOME does not switch AWAY on |
+| **Purge amount: LOW / NORMAL / HIGH** | One tap moves six values together: the default purge, both extras and the three purge buttons. NORMAL = the values in the file, LOW = 0.6×, HIGH = 1.8×. If you change one of the six by hand it says **CUSTOM**; the next tap goes back to NORMAL |
+| **Material temperatures** | PLA, PETG, ABS, ASA, TPU. 0 hides a button |
+| **Alerts** | Phone message, reminder interval, Telegram answer buttons, buzzer |
+| **Advanced...** | Fine tuning — see below |
+| **Printer setup...** | What is set once at install time, plus **Check install** |
+
+Footer: **Factory reset...** and **Close** (a waiting color swap window comes back).
+
+| Purge amount | Default | Back to main | Material change | Buttons |
+|---|---|---|---|---|
+| LOW | 30 | 35 | 10 | 10 / 20 / 35 |
+| NORMAL | 50 | 60 | 15 | 15 / 30 / 60 |
+| HIGH | 90 | 110 | 25 | 25 / 55 / 110 |
+
+### Factory reset
+
+**Factory reset...** (red, bottom of the first window) asks once, then puts **every** color swap setting back to the value written in `color_swap.cfg` and empties the saved changes. A saved resume point is kept. In Mainsail it is also a macro button: `COLOR_SWAP_FACTORY_RESET`.
+
+### The same window in Mainsail — before and during a print
+
+Mainsail shows exactly the same windows as KlipperScreen (it draws the same prompt).
+
+| Where | How |
+|---|---|
+| Dashboard → **Macros** | Button **COLOR SWAP SETTINGS**. It is there in every state: idle, printing, paused |
+| Console | Type `COLOR_SWAP_SETTINGS` |
+| Type one value | `COLOR_SWAP_SET NAME=reprime_mm VALUE=2` — `COLOR_SWAP_SET` alone lists every name with its value |
+
+- **While printing**: a change only writes a number and saves it — nothing moves and nothing heats. It counts from the next color swap on.
+- **While a swap is waiting**: open the settings, change what you need, **Close** — the swap window comes back. A change to the purge amount made before **Load + purge** is used by that very swap.
+- KlipperScreen and Mainsail show the same window at the same time; a tap on either one answers both.
+- Closed the window with the **×**? Press the button again.
+
+### Inside a group
+
+- A line that ends in **ON / OFF** switches when you tap it.
+- A line with a number opens a small window: its title is the name and the value, the text says **what the number does and when to raise or lower it**, and the buttons are **− 10× / − / + / + 10×**. **Back to the file default** appears only after you changed it. **Done** goes back.
+- **A star** in front of a line = you changed it. The Advanced and Printer setup lists show **(2 changed)** next to a group.
+- Settings that do not apply are not shown: the straight-line length and "trust Z" on a delta, the shake details while the shake is off.
+
+### Advanced
+
+| Group | What is in it |
+|---|---|
+| Swap | Pull the old filament out by itself, refuse loading without filament, runout window, speed back to the print, heat band |
+| Long waits | Cool the nozzle after / down to, purge after reheating, nozzle heater off after, everything off after, hold the head firmly |
+| Purge details | All 13 purge numbers one by one |
+| Unload and load feel | Tip forming, slow end of loading, loading speed, speed for TPU |
+| First layer line | The layer-1 start line and the strand shake |
+| Power cut resume | Save interval, offer to resume at start-up, stop height |
+
+### Printer setup
+
+| Group | What is in it |
+|---|---|
+| Park point | Automatic or your own X / Y, distance from the front limit, lift, lowest height |
+| Filament path | Length pulled out, length pushed in (bowden: the tube length) |
+| This printer | What RESUME pushes by itself, lowest temperature for moving filament, trust Z after a power cut (not on a delta) |
+
+Four names are still edited in the file, at the end of `_COLOR_SWAP_CFG`: `notify_name`, `beeper_pin`, `sensor` ("auto"), `hold_steppers` ([] = automatic).
+
+---
+
+## 🆕 Part 6 — Away from the printer
+
+### Auto continue with the current color
+
+**Color swap settings → I am HOME** — one tap switches to **AWAY**. The waiting time is the button below it (5 min).
+
+| What happens at a swap | |
+|---|---|
+| The head parks. The old filament **stays in** (it is what the print may continue with) | Window: **Unload** / **Keep current color** |
+| You press anything | Auto continue is off for this swap; it now waits for you |
+| Nobody presses anything for 5 minutes | The print continues **with the current color**, and a message goes to the phone |
+
+- The rest of the file prints in the "wrong" color until the next swap. Nothing else is lost.
+- Use it with the same material type: the slicer still sets the next filament's temperature.
+- Tap **I am AWAY** when you are back: every swap waits for you again.
+
+### What a long wait does (nothing here loses the print)
+
+| After | What happens | To go on |
+|---|---|---|
+| 5 min with no button (`standby_min`) | Nozzle cools to 170 °C | Any button reheats. **Continue...** purges 10 mm first and asks you to cut the strand |
+| 60 min (`nozzle_off_min`) | Nozzle heater off. **Bed and motors stay on** | The same |
+| 8 hours (`wait_max_min`) | Klipper switches everything off | `RESUME_SAVED_PRINT` (Part 3) |
+| every 10 min (`remind_min`) | A phone message | — |
+
+### Remote commands
+
+Plain commands that need no window. Send them from anything that reaches the printer: Mainsail over a VPN, Mobileraker, OctoApp, or Telegram.
+
+| Command | What it does |
+|---|---|
+| `CS_STATUS` | Where the swap stands, the nozzle temperature, and which commands fit now. The answer also goes to the phone |
+| `CS_WAIT` | "I am coming": auto continue is off for this swap |
+| `CS_KEEP` | No swap: continue now with the color in the nozzle |
+| `CS_UNLOAD` / `CS_LOAD` | Pull the old filament out / load and purge the one somebody inserted |
+| `CS_PURGE` | Purge 30 mm more (`CS_PURGE MM=60`) |
+| `CS_CONTINUE` | The swap is done: continue the print. Nobody cuts the strand — look at the camera first |
+| `CS_CANCEL` | Cancel the print |
+
+### Telegram: commands and buttons
+
+The Moonraker notifier of Part 4 only **sends**. To **answer** from Telegram, install **moonraker-telegram-bot** — steps and the ready `telegram.conf` are in `telegram_bot.txt` (15 minutes, over SSH).
+Then switch on **Alerts → Telegram answer buttons**. Every swap message then comes with buttons (Keep color, Wait for me, Load + purge, Continue print, Status, Cancel print), and `/cs_status`, `/cs_keep`… work as typed commands.
+
+> Not tested on the printer yet: the button message uses the bot's `tgcustom_keyboard` format as its wiki describes it.
+
+---
+
 ## Safety: does the head go below the layer height?
 
 **No.** All the swap moves:
@@ -268,10 +406,9 @@ Needs a part fitted inside the printer. The macro is ready: it beeps 3 times at 
 
 Verified by simulating the macro (6 cases): lowest Z = the Z at the pause for a swap, and the saved Z + 0.5 when resuming from a layer.
 
-### ⚠ Warning
+### Waiting
 
-**Do not leave the printer paused for more than an hour.** After that Klipper turns off the motors and heaters,
-the printer loses the head position, and the print cannot be finished. And do not pull the filament after that while it is cold.
+A waiting swap no longer loses the print after an hour — see Part 6. The nozzle cools, then switches off; the bed and the motors stay on for `wait_max_min` (8 hours). Do not pull the filament by hand once the nozzle is cold: press **Unload again**, it heats first.
 
 ---
 
@@ -281,15 +418,18 @@ the printer loses the head position, and the print cannot be finished. And do no
 
 | File | Contents |
 |---|---|
-| `color_swap.cfg` | The macro, windows and settings, head lock, save points and resume |
-| `FLSUN_V400/macros.cfg` | `RESUME` (skips the 1 mm push and returns fast after a swap), `CANCEL_PRINT`, `UNLOAD_FILAMENT`/`LOAD_FILAMENT` with forced heating, and `START_PRINT`/`END_PRINT` that delete the save point |
+| `color_swap.cfg` | The macro, windows, settings window, waiting clock, head lock, save points, resume, alerts and remote commands |
+| `FLSUN_V400/macros.cfg` | `RESUME` (returns fast after a swap), `M600` (opens the swap window), `CANCEL_PRINT`, `UNLOAD_FILAMENT`/`LOAD_FILAMENT` with forced heating, and `START_PRINT`/`END_PRINT` that delete the save point |
 | `FLSUN_V400/KlipperScreen.conf` | **Color swap** button in the print menu, and 🆕 **Resume saved** button on the home screen |
 | `orca_change_filament_gcode.txt` | Orca line for the color swap |
 | 🆕 `orca_before_layer_change_gcode.txt` | Orca line for save points |
 | `moonraker_notifier.txt` | Telegram section to paste at the end of `moonraker.conf` |
-| `ROLLBACK_v4/` | Version 4 files, to go back |
+| 🆕 `KlipperScreen_color_swap.conf` | The KlipperScreen buttons for other printers |
+| 🆕 `telegram_bot.txt` | Remote control from Telegram |
+| 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 262 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
+| `ROLLBACK_v5.1/` | Version 5.1 files, to go back |
 
-The save point is a single variable `cs_resume` in `variables.cfg` on the printer.
+The save point is a single variable `cs_resume` in `variables.cfg` on the printer. 🆕 The settings changed on the screen are `cs_set` in the same file.
 
 ### Filament accounting (no gap and no blob on resume)
 
@@ -298,37 +438,47 @@ The save point is a single variable `cs_resume` in `variables.cfg` on the printe
 | Before the swap | Orca retracts `RETRACT` (2 mm), and `PAUSE` retracts 1 mm |
 | Unload | Push 3 mm + what was retracted → fast pull 13 mm → wait 3 s → pull the rest (Marlin's method to form a clean tip) |
 | After the purge | Retract `hold` = the larger of `RETRACT` and 1 mm |
-| Continue | Push `hold` + 1.5 → retract exactly `RETRACT` |
+| Continue | Push `hold` + 1.5 → retract `RETRACT` + 1 (`pause_retract_mm`) → `RESUME` pushes its 1 mm |
 | Start of printing | Orca pushes `RETRACT` → the nozzle is exactly full |
 
-### Settings — in `_COLOR_SWAP_CFG`
+### Settings
 
-| Variable | Default | Meaning |
+All of them are in the settings window (Part 5), where each one explains itself. The names in the file and their defaults:
+
+| Setting | Default | Meaning |
 |---|---|---|
-| `park_x / park_y / park_lift / park_min_z` | 0 / -140 / 10 / 60 | Purge spot and height |
-| `unload_mm / unload_purge_mm / unload_dwell_ms` | 40 / 3 / 3000 | Unload |
-| `load_mm / load_slow_mm` | 40 / 15 | Load (last 15 mm slow) |
-| `purge_min / purge_max / purge_default` | 25 / 250 / 50 | Purge amount limits |
-| `purge_material_change` | 15 | Added when the type changes |
-| 🆕 `purge_to_main_extra` | 60 | Added when going back to the main filament (line 87) |
-| 🆕 `purge_pulse_mm / purge_pulse_retract` | 20 / 2 | Pulsed purge (0 = one continuous purge) |
-| `purge_speed` | 180 | 3 mm/s |
-| `purge_buttons` | [15, 30, 60] | Extra purge buttons |
-| `settle_mm` | 8 | Purge at the new temperature when cooling (PETG → PLA) |
-| `reprime_mm` | 1.5 | Nozzle fill at Continue. Raise to 2–3 if the start is still weak |
-| `flick / flick_mm` | **0** / 8 | Side flick (0 = off, the default in version 5) |
-| `resume_speed` | 250 | Return speed, mm/s |
-| `heat_band` | 3 | The wait ends when the temperature is within ± this number |
-| `temp_pla / temp_petg` | 215 / 240 | Button temperatures |
-| `wait_timeout` | 3600 | Seconds before the motors are turned off |
-| 🆕 `hold_boost` | 1 | Head lock while waiting (0 = off) |
-| 🆕 `hold_steppers` | stepper_a/b/c | Motors that are locked |
-| `resume_lift` | 0.5 | Stop height above the layer point before continuing the file |
-| 🆕 `autosave_s` | 60 | Save the resume point every this many seconds (0 = off) |
-| 🆕 `boot_prompt` | 1 | Open the resume window on its own after the printer starts |
-| 🆕 `first_layer_wipe` | 1 | Wipe line on the first layer only (0 = off) |
-| 🆕 `wipe_radius / wipe_step / wipe_z / wipe_margin` | 145 / 1.2 / 0.3 / 10 | Wipe line position, height, and safe distance from the model |
-| 🆕 `notify_name` | phone | Moonraker notifier name for phone messages ("" = off) |
+| `park_auto / park_edge` | 1 / 12 | Automatic park point, mm inside the front limit |
+| `park_x / park_y` | 0 / -140 | Manual park point (`park_auto` 0) |
+| `park_lift / park_min_z` | 10 / 60 | Lift above the model, lowest park height |
+| 🆕 `auto_unload` | 1 | Pull the old filament out at once (0 = Unload button) |
+| 🆕 `auto_continue_min` | 0 | Minutes with no button before the print goes on with the current color. Set by the HOME / AWAY button |
+| 🆕 `away_min` | 5 | The away time the AWAY button uses |
+| 🆕 `load_check_sensor` | 1 | Refuse Load + purge when the sensor sees no filament |
+| 🆕 `runout_swap` | 1 | Runout / M600 use the swap window |
+| 🆕 `pause_retract_mm` | 1 | What the printer's own PAUSE retracts and RESUME pushes |
+| `resume_speed / heat_band` | 250 / 3 | Return speed mm/s, temperature band |
+| 🆕 `min_temp` | 170 | Nothing is loaded or unloaded below this |
+| 🆕 `standby_min / standby_temp / standby_purge_mm` | 5 / 170 / 10 | Nozzle standby while waiting |
+| 🆕 `nozzle_off_min / wait_max_min` | 60 / 480 | Nozzle off; everything off |
+| 🆕 `remind_min` | 10 | Phone reminder interval |
+| `hold_boost` | 1 | Head lock while waiting |
+| `unload_mm / unload_purge_mm / unload_snap_mm / unload_dwell_ms` | 40 / 3 / 13 / 3000 | Unload and tip forming |
+| `load_mm / load_slow_mm / load_speed` | 40 / 15 / 600 | Load (last 15 mm slow) |
+| 🆕 `flex_speed_pct` | 50 | TPU / TPE / FLEX speed, percent |
+| `purge_min / purge_max / purge_default` | 25 / 250 / 50 | Purge limits |
+| `purge_material_change / purge_to_main_extra` | 15 / 60 | Extras |
+| `purge_speed / purge_pulse_mm / purge_pulse_retract` | 180 / 20 / 2 | 3 mm/s, pulsed purge |
+| `purge_btn1 / purge_btn2 / purge_btn3` | 15 / 30 / 60 | The purge buttons |
+| `settle_mm / reprime_mm` | 8 / 1.5 | Settle after cooling, nozzle fill at Continue |
+| `temp_pla / temp_petg / temp_abs / temp_asa / temp_tpu` | 215 / 240 / 250 / 255 / 225 | Material presets |
+| `first_layer_wipe / first_layer_max_z` | 1 / 0.75 | Layer-1 wipe line |
+| 🆕 `wipe_edge / wipe_len` | 7 / 80 | Line distance from the limit, length (not delta) |
+| `wipe_step / wipe_z / wipe_e_per_mm / wipe_speed / wipe_margin` | 1.2 / 0.3 / 0.1 / 1200 / 10 | Line details |
+| `flick / flick_mm / flick_cool_ms` | 0 / 8 / 1500 | Side flick |
+| `autosave_s / boot_prompt / resume_lift` | 60 / 1 / 0.5 | Power-loss resume |
+| 🆕 `resume_trust_z` | 0 | Not delta: home X/Y only and trust Z |
+| 🆕 `notify / tg_bot / beep` | 1 / 0 / 1 | Phone messages, Telegram bot buttons, buzzer |
+| `beep_count / beep_ms` | 3 / 150 | Buzzer |
 
 ### Verified
 
@@ -338,9 +488,16 @@ The save point is a single variable `cs_resume` in `variables.cfg` on the printe
 - Version 4 installed on the printer on 2026-11-05: no warnings, calibration unchanged, the `RESUME_SAVED_PRINT` window appears.
 - Telegram messages reach the phone (`TEST_ALERT`, 2026-11-06).
 
+- 🆕 Version 6, in a simulator that renders the macros with Klipper's own template settings and runs them (2026-11-11): 262 checks on a delta, a Cartesian and a CoreXY machine — swap, back-to-main purge, auto continue, standby and heater-off, keep color, layer-1 wipe line, runout, cancel, power-loss resume, settings window (every numeric setting is on the screen), remote commands, bowden lengths. Lowest Z = the Z at the pause (0.3 for the layer-1 line), and the filament accounting comes out exact.
+
+- 🆕 Version 6.2 on the FLSUN V400 itself (2026-11-12, printer idle, nothing moved): Klipper loads the config with no warnings; `COLOR_SWAP_CHECK` finds the delta limits, park point X0 Y-140, the filament sensor, the three tower motors and the hook lines; all 111 settings windows open without an error; HOME / AWAY, the away time, purge LOW / NORMAL / HIGH / CUSTOM, an ON / OFF switch, `COLOR_SWAP_SET` and Factory reset each changed and saved the right values; the window shows in Mainsail with the **COLOR SWAP SETTINGS** button on the dashboard.
+
 ### Not verified yet
 
-- The Re-home button and a full resume on a real print (tested in simulation only).
+- **A real color swap with version 6** — the swap, auto continue, standby, runout and resume paths ran in the simulator only.
+- Opening the settings window in Mainsail **during** a real print (tested with the printer idle, and in the simulator while printing).
+- The Telegram bot button message (`tgcustom_keyboard`) and the non-delta "trust Z" resume.
+- The Re-home button and a full resume on a real print (simulation only).
 
 ## License
 
