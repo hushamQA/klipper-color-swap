@@ -383,12 +383,30 @@ Plain commands that need no window. Send them from anything that reaches the pri
 | `CS_CONTINUE` | The swap is done: continue the print. Nobody cuts the strand — look at the camera first |
 | `CS_CANCEL` | Cancel the print |
 
-### Telegram: commands and buttons
+### Telegram control panel (buttons, no typing)
 
-The Moonraker notifier of Part 4 only **sends**. To **answer** from Telegram, install **moonraker-telegram-bot** — steps and the ready `telegram.conf` are in `telegram_bot.txt` (15 minutes, over SSH).
-Then switch on **Alerts → Telegram answer buttons**. Every swap message then comes with buttons (Keep color, Wait for me, Load + purge, Continue print, Status, Cancel print), and `/cs_status`, `/cs_keep`… work as typed commands.
+`telegram_panel/` is a small bot that runs on the printer and turns the chat into a control panel. Nothing is typed: every action is a button.
 
-> Not tested on the printer yet: the button message uses the bot's `tgcustom_keyboard` format as its wiki describes it.
+| In the chat | What it is |
+|---|---|
+| **Panel** key (always at the bottom) | Opens the control panel |
+| The control panel | State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **I am HOME / AWAY**, **Settings**, **Open the color swap window**, **Emergency stop** |
+| Printer windows | Every window the printer opens — the color swap windows and the whole settings window — arrives as a message **with the same buttons**. A tap does exactly what a tap on the printer screen does, and the same message updates in place |
+
+- A new window is a new message, so the phone rings when a swap starts. When the window closes on the printer, the message loses its buttons.
+- **Cancel print** and **Emergency stop** ask a second time.
+- Only your chat can use it; any other chat is ignored. There is no way to send G-code.
+- It uses the bot you already have for the alerts (the `tgram://` line in `moonraker.conf`) — no new token.
+- Python standard library only, one file, one service of the normal user (`cs-telegram-panel`). No sudo, no password.
+- What it does is written to `cs_telegram_panel.log` (Mainsail → Machine → logs).
+
+**Install** (once, over SSH, printer idle): copy the `telegram_panel` folder to the printer and run `bash install.sh`. To remove: `bash install.sh remove`. Restart it: `systemctl --user restart cs-telegram-panel`.
+
+If the notifier line in `moonraker.conf` is written `tgram://bot123...`, that works as it is.
+
+Leave **Alerts → Telegram answer buttons** OFF with this panel: that switch is for the other bot (`telegram_bot.txt`, moonraker-telegram-bot), which is an alternative, not an addition.
+
+> Installed on the FLSUN V400 on 2026-11-13: the service runs, the hello message was sent, and a settings window opened on the printer was sent to the chat, updated in place and closed. The buttons were pressed only against a fake Telegram server and the simulated printer (36 checks: `python telegram_panel/test_panel_bot.py`) — tap through them once yourself while the printer is idle.
 
 ---
 
@@ -425,7 +443,8 @@ A waiting swap no longer loses the print after an hour — see Part 6. The nozzl
 | 🆕 `orca_before_layer_change_gcode.txt` | Orca line for save points |
 | `moonraker_notifier.txt` | Telegram section to paste at the end of `moonraker.conf` |
 | 🆕 `KlipperScreen_color_swap.conf` | The KlipperScreen buttons for other printers |
-| 🆕 `telegram_bot.txt` | Remote control from Telegram |
+| 🆕 `telegram_panel/` | Telegram control panel with buttons (bot, service, installer, tests) |
+| 🆕 `telegram_bot.txt` | The alternative: moonraker-telegram-bot |
 | 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 262 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
 | `ROLLBACK_v5.1/` | Version 5.1 files, to go back |
 

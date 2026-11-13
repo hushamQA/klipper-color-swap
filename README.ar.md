@@ -380,12 +380,30 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 | `CS_CONTINUE` | انتهى التبديل: أكمل الطباعة. لا أحد يقطع الخيط — انظر للكاميرا أولًا |
 | `CS_CANCEL` | إلغاء الطباعة |
 
-### Telegram: أوامر وأزرار
+### لوحة تحكم Telegram (أزرار، بلا كتابة)
 
-إشعار Moonraker في الجزء 4 **يرسل فقط**. لكي **تردّ** من Telegram ثبّت **moonraker-telegram-bot** — الخطوات وملف `telegram.conf` الجاهز في `telegram_bot.txt` (15 دقيقة عبر SSH).
-ثم فعّل **Alerts ← Telegram answer buttons**. بعدها كل رسالة تبديل تأتي ومعها أزرار (Keep color، Wait for me، Load + purge، Continue print، Status، Cancel print)، وتعمل `/cs_status` و`/cs_keep`… كأوامر مكتوبة.
+`telegram_panel/` بوت صغير يعمل على الطابعة ويحوّل المحادثة إلى لوحة تحكم. لا تكتب شيئًا: كل شيء أزرار. نصوص اللوحة بالإنجليزية.
 
-> لم يُجرَّب على الطابعة بعد: رسالة الأزرار تستعمل صيغة `tgcustom_keyboard` كما يشرحها wiki البوت.
+| في المحادثة | ما هو |
+|---|---|
+| مفتاح **Panel** (دائمًا في الأسفل) | يفتح لوحة التحكم |
+| لوحة التحكم | الحالة، الملف، نسبة الإنجاز، الطبقة، الوقت الباقي، الحرارة، التبديل المنتظر، HOME / AWAY. الأزرار: **Refresh**، **Pause / Resume**، **Cancel print**، **I am HOME / AWAY**، **Settings**، **Open the color swap window**، **Emergency stop** |
+| نوافذ الطابعة | كل نافذة تفتحها الطابعة — نوافذ تبديل اللون ونافذة الإعدادات كاملة — تصل كرسالة **بنفس الأزرار**. الضغطة تفعل ما تفعله الضغطة على شاشة الطابعة تمامًا، والرسالة نفسها تتحدّث في مكانها |
+
+- النافذة الجديدة رسالة جديدة، فيرنّ الهاتف عند بداية التبديل. وحين تُغلق النافذة على الطابعة تفقد الرسالة أزرارها.
+- **Cancel print** و**Emergency stop** يسألان مرة ثانية.
+- محادثتك وحدها تستعمله، وأي محادثة أخرى تُتجاهل. لا توجد طريقة لإرسال G-code.
+- يستعمل البوت الموجود عندك للتنبيهات (سطر `tgram://` في `moonraker.conf`) — بلا رمز جديد.
+- مكتبة Python القياسية فقط، ملف واحد، خدمة واحدة للمستخدم العادي (`cs-telegram-panel`). بلا sudo وبلا كلمة مرور.
+- ما يفعله يُكتب في `cs_telegram_panel.log` (Mainsail ← Machine ← logs).
+
+**التثبيت** (مرة واحدة عبر SSH والطابعة متوقفة): انسخ مجلد `telegram_panel` إلى الطابعة ونفّذ `bash install.sh`. للإزالة: `bash install.sh remove`. لإعادة تشغيله: `systemctl --user restart cs-telegram-panel`.
+
+إن كان سطر الإشعارات في `moonraker.conf` مكتوبًا `tgram://bot123...` فهو يعمل كما هو.
+
+اترك **Alerts ← Telegram answer buttons** على OFF مع هذه اللوحة: ذلك الزر للبوت الآخر (`telegram_bot.txt`، moonraker-telegram-bot)، وهو بديل وليس إضافة.
+
+> مثبّت على FLSUN V400 يوم 2026-11-13: الخدمة تعمل، ورسالة الترحيب أُرسلت، ونافذة إعدادات فُتحت على الطابعة فوصلت للمحادثة وتحدّثت في مكانها ثم أُغلقت. أما ضغط الأزرار فجُرّب فقط مع خادم Telegram وهمي والطابعة المحاكاة (36 فحصًا: `python telegram_panel/test_panel_bot.py`) — جرّبها أنت مرة والطابعة متوقفة.
 
 ---
 
@@ -422,7 +440,8 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 | 🆕 `orca_before_layer_change_gcode.txt` | سطر Orca لنقاط الحفظ |
 | `moonraker_notifier.txt` | قسم Telegram يُلصق في آخر `moonraker.conf` |
 | 🆕 `KlipperScreen_color_swap.conf` | أزرار KlipperScreen للطابعات الأخرى |
-| 🆕 `telegram_bot.txt` | التحكم عن بعد من Telegram |
+| 🆕 `telegram_panel/` | لوحة تحكم Telegram بالأزرار (البوت، الخدمة، سكربت التثبيت، الاختبارات) |
+| 🆕 `telegram_bot.txt` | البديل: moonraker-telegram-bot |
 | 🆕 `sim/` | اختبارات: `python sim/run_tests.py` يعالج الماكروهات كما يفعل Klipper ويشغّل 262 فحصًا على طابعة وهمية دلتا وكارتيزي و CoreXY. يحتاج `pip install jinja2`. لا يلمس أي طابعة حقيقية |
 | `ROLLBACK_v5.1/` | ملفات الإصدار 5.1، للرجوع |
 

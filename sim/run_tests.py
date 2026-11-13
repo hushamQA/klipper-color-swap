@@ -8,9 +8,9 @@ from sim import Sim, Raise
 
 BASE = os.path.dirname(HERE)
 CS = os.path.join(BASE, "color_swap.cfg")
-V400 = os.path.join(BASE, "FLSUN_V400", "macros.cfg")
-if not os.path.exists(V400):
-    V400 = os.path.join(BASE, "macros.cfg")
+V400 = os.path.join(BASE, "macros.cfg")
+if not os.path.exists(V400):          # package / repository layout
+    V400 = os.path.join(BASE, "FLSUN_V400", "macros.cfg")
 GEN = os.path.join(HERE, "generic_macros.cfg")
 
 SWAP = "COLOR_SWAP SLOT=2 MATERIAL=PLA OLD_MATERIAL=PETG TEMP=215 OLD_TEMP=240 RETRACT=2 PURGE=43.155"

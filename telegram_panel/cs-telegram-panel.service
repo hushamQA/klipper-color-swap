@@ -1,0 +1,15 @@
+[Unit]
+Description=COLOR_SWAP Telegram control panel
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 %h/cs-telegram-panel/cs_panel_bot.py %h/printer_data/config/cs_telegram.conf
+Restart=always
+RestartSec=10
+Nice=10
+StandardOutput=append:%h/printer_data/logs/cs_telegram_panel.log
+StandardError=append:%h/printer_data/logs/cs_telegram_panel.log
+
+[Install]
+WantedBy=default.target
