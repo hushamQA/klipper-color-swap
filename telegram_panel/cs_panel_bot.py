@@ -3,12 +3,17 @@
 
 Runs on the printer next to Moonraker. Python 3.7+, standard library only.
 
+  * Everything here is for controlling the printer from FAR AWAY. Buttons that need
+    somebody standing at the printer (Unload, Load + purge, Purge, Re-home, material
+    presets, Printer setup) are never shown.
   * Any message (or the "Panel" key) shows the control panel: printer status and
-    buttons for Refresh, Pause / Resume / Cancel, HOME / AWAY, Settings, the waiting
-    color swap, and Emergency stop.
-  * Every window the printer opens (the color swap windows and the whole settings
-    window) is mirrored into the chat as a message with the same buttons. A tap on a
-    button does exactly what a tap on the printer screen does.
+    buttons for Refresh, Pause / Resume / Cancel, Heaters off, HOME / AWAY, Settings
+    and Emergency stop.
+  * A waiting color swap gets its own card: what is waiting, and what can be done from
+    here - Keep the current color and continue, Wait for me, Cancel print. When the
+    swap needs hands (the old filament is out, or it ran out) the card says so.
+  * Settings opens the settings window in the chat with the same buttons as on the
+    printer (minus Printer setup). Windows opened AT the printer are not sent here.
   * Only ONE chat may use the bot (chat_id). Everybody else is ignored.
   * There is no way to type G-code: buttons only.
 
@@ -27,7 +32,14 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "1.0"
+VERSION = "1.1"
+# The commands a settings window is made of. A window with any other button is not a
+# settings window and is never shown in the chat.
+SETTINGS_CMDS = {"COLOR_SWAP_SETTINGS", "_CS_SET_EDIT", "_CS_SET_ADJ", "_CS_SET_MODE", "_CS_PURGE_LEVEL",
+                 "_CS_SET_RESET", "_CS_SET_CLOSE", "COLOR_SWAP_CHECK"}
+# Settings buttons that only make sense at the printer (install-time values, the install
+# check that answers on the console): left out of the chat.
+AT_PRINTER_ONLY = ("COLOR_SWAP_SETTINGS V=setup", "COLOR_SWAP_CHECK")
 DEFAULT_CONF = "~/printer_data/config/cs_telegram.conf"
 MOONRAKER_CONF = "~/printer_data/config/moonraker.conf"
 
@@ -88,6 +100,15 @@ class Bot:
         self.mark = None              # (time, count) of the last console line handled
         self.panel_msg = None
         self.confirm = None           # ("cancel" | "estop", time)
+        # Only the settings window is mirrored, and only while it was opened from here.
+        self.settings_until = 0
+        # the color swap card (what can be done about a waiting swap from far away)
+        self.swap_msg = None
+        self.swap_on = False
+        self.swap_confirm = None      # ("keep" | "cancel", time)
+        self.swap_dirty = False
+        self.swap_shown = None        # last text + buttons sent, to skip identical edits
+        self.status_at = 0
 
     # ------------------------------------------------------------ network
     def tg(self, method, timeout=35, **params):
@@ -145,7 +166,7 @@ class Bot:
     def status(self):
         q = ("/printer/objects/query?print_stats&display_status&virtual_sdcard&pause_resume&webhooks"
              "&extruder=temperature,target&heater_bed=temperature,target"
-             "&gcode_macro%20COLOR_SWAP=state,unloaded,slot,material,runout,waited,swaps"
+             "&gcode_macro%20COLOR_SWAP=state,unloaded,slot,material,old_material,cur_material,runout,waited,idle_s,touched,swaps,standby"
              "&gcode_macro%20_COLOR_SWAP_CFG=auto_continue_min,away_min")
         try:
             return self.mr(q)["status"]
@@ -207,7 +228,9 @@ class Bot:
             row = [] if swap else [{"text": "Resume", "callback_data": "m:resume"}]
             kb.append(row + [{"text": "Cancel print", "callback_data": "m:cancel"}])
         if swap:
-            kb.append([{"text": "Open the color swap window", "callback_data": "m:swap"}])
+            kb.append([{"text": "Color swap - what can I do?", "callback_data": "m:swap"}])
+        if state not in ("printing", "paused") and not paused and (ex.get("target", 0) or bed.get("target", 0)):
+            kb.append([{"text": "Heaters off", "callback_data": "m:heat_off"}])
         if cc:
             kb.append([{"text": "I am AWAY - tap when home" if away else "I am HOME - tap when leaving", "callback_data": "m:mode"},
                        {"text": "Settings", "callback_data": "m:settings"}])
@@ -244,8 +267,12 @@ class Bot:
         elif what == "no":
             self.confirm = None
         elif what == "swap":
-            self.gcode("COLOR_SWAP_PROMPT"); note = "Opening the color swap window"
+            self.swap_card(st, new=True); note = "Color swap"
+        elif what == "heat_off":
+            self.gcode("TURN_OFF_HEATERS"); note = "Heaters off"
+            time.sleep(0.8)
         elif what == "settings":
+            self.settings_until = time.time() + 900      # mirror the settings window for this visit
             self.gcode("COLOR_SWAP_SETTINGS"); note = "Opening the settings"
         elif what == "mode" and cc:
             away = float(cc.get("auto_continue_min", 0) or 0) > 0
@@ -265,6 +292,7 @@ class Bot:
         if not m:
             return
         kind, arg = m.group(1), m.group(2).strip()
+        self.swap_dirty = True      # a window changed on the printer: look at the swap again
         if kind == "begin":
             self.building = {"title": arg, "text": "", "rows": [], "group": None, "footer": []}
         elif kind == "end":
@@ -294,8 +322,20 @@ class Bot:
                 self.building["rows"].append([btn])
         elif kind == "show":
             b = self.building
+            every = [btn for row in b["rows"] for btn in row] + b["footer"]
+            # Mirrored: the settings window, while it was opened from this chat. NOT
+            # mirrored: the color swap and resume windows - their buttons (Unload, Load +
+            # purge, Purge, Re-home...) are for somebody standing at the printer. What can
+            # be done about a swap from far away is on the color swap card instead.
+            is_settings = bool(every) and all(c.split(" ")[0] in SETTINGS_CMDS for _, c in every)
+            if not (is_settings and time.time() < self.settings_until):
+                if self.window is not None:
+                    self.close_at = time.time() - 2
+                return
+            self.settings_until = time.time() + 900
             rows = []
             for row in b["rows"] + ([b["footer"]] if b["footer"] else []):
+                row = [btn for btn in row if not any(btn[1].startswith(x) for x in AT_PRINTER_ONLY)]
                 # long labels do not fit four in a row on a phone
                 width = 2 if any(len(lbl) > 16 for lbl, _ in row) else 3
                 for i in range(0, len(row), width):
@@ -333,6 +373,101 @@ class Bot:
         if w:
             log("window closed:", w["title"])
         self.win_msg = None      # the next window is a new message, so the phone rings
+        self.settings_until = 0
+
+    # ------------------------------------------------------------ the color swap card
+    def swap_view(self, st):
+        """Text and buttons for a waiting swap: only what makes sense from far away."""
+        cs = st.get("gcode_macro COLOR_SWAP") or {}
+        cc = st.get("gcode_macro _COLOR_SWAP_CFG") or {}
+        state, unloaded, runout = int(cs.get("state", 0) or 0), bool(cs.get("unloaded")), bool(cs.get("runout"))
+        mins = int(cs.get("waited", 0) or 0) // 60
+        new = ("filament %s %s" % (cs.get("slot") or "", cs.get("material") or "")).strip()
+        ac = float(cc.get("auto_continue_min", 0) or 0) * 60
+        armed = ac > 0 and not cs.get("touched") and state == 1 and not unloaded and not runout
+        can_keep = state == 1 and not unloaded and not runout
+        if runout:
+            head = "Filament ran out"
+            body = "The print is paused. Somebody at the printer has to load filament. From here you can only cancel."
+        elif state == 1 and not unloaded:
+            head = "Color swap to %s" % new
+            body = "The old filament (%s) is still in the nozzle, so the print can go on with it." % (cs.get("old_material") or "current color")
+            if armed:
+                left = max(int((ac - float(cs.get("idle_s", 0) or 0)) / 60 + 0.999), 0)
+                body += "\n\nNobody answers: in about <b>%d min</b> the print continues by itself with the current color." % left
+            else:
+                body += "\n\nThe printer is waiting. It will not continue by itself."
+        elif state == 1:
+            head = "Color swap to %s" % new
+            body = "The old filament is already out. Somebody at the printer has to insert the new one. From here you can only cancel."
+        else:
+            head = "Color swap to %s" % new
+            body = "The new filament is loaded. Somebody at the printer has to check the color and press Continue."
+        text = "<b>%s</b>\nWaiting %d min. Nozzle %d C.\n\n%s" % (esc(head), mins, round(st.get("extruder", {}).get("temperature", 0)), body)
+        if cs.get("standby"):
+            text += "\n\nThe nozzle has cooled down to wait. The bed and the motors stay on."
+        kb = []
+        c = self.swap_confirm
+        if c and time.time() - c[1] < 30 and (c[0] != "keep" or can_keep):
+            q = "Continue the print now with the current color?" if c[0] == "keep" else "Really cancel the print?"
+            text += "\n\n<b>%s</b>" % q
+            kb.append([{"text": "Yes, continue" if c[0] == "keep" else "Yes, cancel the print", "callback_data": "s:yes_" + c[0]},
+                       {"text": "No, go back", "callback_data": "s:no"}])
+            return text, {"inline_keyboard": kb}
+        self.swap_confirm = None
+        if can_keep:
+            kb.append([{"text": "Keep the current color and continue", "callback_data": "s:keep"}])
+        if armed:
+            kb.append([{"text": "Wait for me - do not continue", "callback_data": "s:wait"}])
+        kb.append([{"text": "Cancel print", "callback_data": "s:cancel"}, {"text": "Refresh", "callback_data": "s:refresh"}])
+        return text, {"inline_keyboard": kb}
+
+    def swap_card(self, st=None, new=False):
+        st = st if st is not None else self.status()
+        if not st:
+            return
+        with self.lock:
+            cs = st.get("gcode_macro COLOR_SWAP") or {}
+            active = int(cs.get("state", 0) or 0) > 0
+            if not active:
+                if self.swap_on and self.swap_msg:
+                    ps = st.get("print_stats", {}).get("state", "")
+                    end = ("The print continues with %s." % (cs.get("cur_material") or "the loaded filament")) if ps == "printing" \
+                        else "The print was cancelled." if ps == "cancelled" else "The swap is over (printer: %s)." % ps
+                    self.edit(self.swap_msg, "<b>Color swap finished</b>\n\n" + esc(end))
+                    log("swap card closed:", end)
+                self.swap_on, self.swap_msg, self.swap_shown, self.swap_confirm = False, None, None, None
+                return
+            text, kb = self.swap_view(st)
+            if not self.swap_on:
+                new = True                      # a new swap: a new message, so the phone rings
+            self.swap_on = True
+            if (text, kb) == self.swap_shown and not new:
+                return
+            if self.swap_msg and not new and self.edit(self.swap_msg, text, kb):
+                self.swap_shown = (text, kb)
+                return
+            r = self.say(text, kb)
+            self.swap_msg = r["message_id"] if r else None
+            self.swap_shown = (text, kb)
+            log("swap card sent:" if r else "swap card NOT sent:", text.split("\n")[0][3:-4])
+
+    def swap_action(self, what):
+        note = ""
+        if what in ("keep", "cancel"):
+            self.swap_confirm = (what, time.time())
+        elif what == "no":
+            self.swap_confirm = None
+        elif what == "yes_keep":
+            self.swap_confirm = None; self.gcode("CS_KEEP"); note = "Continuing with the current color"
+        elif what == "yes_cancel":
+            self.swap_confirm = None; self.gcode("CANCEL_PRINT"); note = "Cancelling the print"
+        elif what == "wait":
+            self.gcode("_CS_TOUCH"); note = "The printer waits for you"
+        if what in ("yes_keep", "yes_cancel", "wait"):
+            time.sleep(1.2)
+        self.swap_shown = None
+        return note
 
     # ------------------------------------------------------------ loops
     def poll_printer(self):
@@ -363,6 +498,11 @@ class Bot:
         with self.lock:
             if self.close_at and time.time() - self.close_at > 1.5:
                 self.close_window()
+        # the swap card: at once when a window changed on the printer, else every few seconds
+        every = 5 if self.swap_on else float(self.cfg.get("status_every", 10))
+        if self.swap_dirty or time.time() - self.status_at >= every:
+            self.swap_dirty, self.status_at = False, time.time()
+            self.swap_card()
 
     def printer_loop(self):
         while not self.stop.is_set():
@@ -404,6 +544,12 @@ class Bot:
                 if mid and mid != self.win_msg:
                     self.tg("editMessageReplyMarkup", chat_id=self.chat, message_id=mid, reply_markup={"inline_keyboard": []})
             self.tg("answerCallbackQuery", callback_query_id=cb["id"], text=note[:190])
+        elif data.startswith("s:"):
+            log("swap button:", data[2:])
+            self.swap_msg = cb.get("message", {}).get("message_id") or self.swap_msg
+            note = self.swap_action(data[2:])
+            self.tg("answerCallbackQuery", callback_query_id=cb["id"], text=(note or "Updated")[:190])
+            self.swap_card()
         elif data.startswith("m:"):
             self.panel_msg = cb.get("message", {}).get("message_id") or self.panel_msg
             log("panel button:", data[2:])
@@ -437,12 +583,25 @@ class Bot:
             log("getUpdates failed:", type(e).__name__)
             return None
 
+    def hello(self):
+        """Say hello with the Panel key. Right after the printer is switched on the
+        network may not be up yet, so this is tried again for a few minutes."""
+        for attempt in range(int(self.cfg.get("hello_tries", 30))):
+            self.tg("setMyCommands", commands=[{"command": "panel", "description": "Open the control panel"}])
+            r = self.say("<b>%s</b> - control panel is online (v%s).\nTap <b>Panel</b> below at any time." % (esc(self.cfg["title"]), VERSION),
+                         {"keyboard": [[{"text": "Panel"}]], "resize_keyboard": True, "is_persistent": True})
+            if r is not None:
+                log("online - hello message sent")
+                self.show_panel(new=True)
+                return
+            if attempt == 0:
+                log("could not send the hello message yet (no network, or wrong token / chat id) - trying again")
+            if self.stop.wait(float(self.cfg.get("hello_wait", 10))):
+                return
+        log("gave up on the hello message - check the token and chat id")
+
     def start(self):
-        self.tg("setMyCommands", commands=[{"command": "panel", "description": "Open the control panel"}])
-        r = self.say("<b>%s</b> - control panel is online (v%s).\nTap <b>Panel</b> below at any time." % (esc(self.cfg["title"]), VERSION),
-                     {"keyboard": [[{"text": "Panel"}]], "resize_keyboard": True, "is_persistent": True})
-        log("could not send the hello message - check the token and chat id" if r is None else "online - hello message sent")
-        self.show_panel(new=True)
+        threading.Thread(target=self.hello, daemon=True).start()
         threading.Thread(target=self.printer_loop, daemon=True).start()
         threading.Thread(target=self.telegram_loop, daemon=True).start()
 

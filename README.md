@@ -387,14 +387,26 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 `telegram_panel/` is a small bot that runs on the printer and turns the chat into a control panel. Nothing is typed: every action is a button.
 
+**It is for controlling the printer from far away.** Anything that needs somebody standing at the printer — Unload, Load + purge, Purge, Re-home, the material buttons, Printer setup — is deliberately **not** in the chat.
+
 | In the chat | What it is |
 |---|---|
 | **Panel** key (always at the bottom) | Opens the control panel |
-| The control panel | State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **I am HOME / AWAY**, **Settings**, **Open the color swap window**, **Emergency stop** |
-| Printer windows | Every window the printer opens — the color swap windows and the whole settings window — arrives as a message **with the same buttons**. A tap does exactly what a tap on the printer screen does, and the same message updates in place |
+| The control panel | State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **Heaters off** (idle with a heater on), **I am HOME / AWAY**, **Settings**, **Emergency stop** |
+| The color swap card | Sent by itself when a swap starts (the phone rings) and kept up to date. It says what is waiting and offers only what works from far away |
+| Settings | The settings window of Part 5 with the same buttons, updated in place (without Printer setup and Check install) |
 
-- A new window is a new message, so the phone rings when a swap starts. When the window closes on the printer, the message loses its buttons.
-- **Cancel print** and **Emergency stop** ask a second time.
+**What the color swap card offers**
+
+| Situation | Buttons |
+|---|---|
+| Old filament still in the nozzle (AWAY, or auto unload off) | **Keep the current color and continue**, **Wait for me - do not continue** (while the countdown runs), **Cancel print** |
+| Old filament already out, or new one loaded and waiting for the color check | **Cancel print** only — the card says somebody has to be at the printer |
+| Filament ran out | **Cancel print** only |
+
+- Keep, Cancel print and Emergency stop ask a second time.
+- When the swap ends the card closes itself and says how: continued with which filament, or cancelled.
+- Windows opened **at** the printer (its own swap window, settings, resume) are not sent to the chat.
 - Only your chat can use it; any other chat is ignored. There is no way to send G-code.
 - It uses the bot you already have for the alerts (the `tgram://` line in `moonraker.conf`) — no new token.
 - Python standard library only, one file, one service of the normal user (`cs-telegram-panel`). No sudo, no password.
@@ -402,11 +414,9 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 **Install** (once, over SSH, printer idle): copy the `telegram_panel` folder to the printer and run `bash install.sh`. To remove: `bash install.sh remove`. Restart it: `systemctl --user restart cs-telegram-panel`.
 
-If the notifier line in `moonraker.conf` is written `tgram://bot123...`, that works as it is.
-
 Leave **Alerts → Telegram answer buttons** OFF with this panel: that switch is for the other bot (`telegram_bot.txt`, moonraker-telegram-bot), which is an alternative, not an addition.
 
-> Installed on the FLSUN V400 on 2026-11-13: the service runs, the hello message was sent, and a settings window opened on the printer was sent to the chat, updated in place and closed. The buttons were pressed only against a fake Telegram server and the simulated printer (36 checks: `python telegram_panel/test_panel_bot.py`) — tap through them once yourself while the printer is idle.
+> Version 1.1 is installed on the FLSUN V400 (2026-11-14): the service runs, the hello message is sent, and windows opened at the printer stay off the chat. The buttons were pressed only against a fake Telegram server and the simulated printer (48 checks: `python telegram_panel/test_panel_bot.py`) — tap through the panel once yourself.
 
 ---
 
