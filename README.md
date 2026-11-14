@@ -391,8 +391,8 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 | In the chat | What it is |
 |---|---|
-| **Panel** key (always at the bottom) | Opens the control panel |
-| The control panel | State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **Heaters off** (idle with a heater on), **I am HOME / AWAY**, **Settings**, **Emergency stop** |
+| **The key bar** (always at the bottom, in place of the phone keyboard) | **Status**, **Pause**, **Resume**, **Home / Away**, **Settings**, **Cancel print**, **STOP**. It stays there however many messages arrive, so the controls never scroll away. A key only acts when it makes sense (Pause does nothing while idle); Cancel print and STOP only ask, the Yes / No is on the panel |
+| The control panel | **One** message, pinned to the top of the chat, that updates itself (every minute while printing). Any key brings it down to the bottom, right above the keys, and removes the old copy and the key press, so the chat stays clean. State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **Heaters off** (idle with a heater on), **I am HOME / AWAY**, **Settings**, **Emergency stop** |
 | The color swap card | Sent by itself when a swap starts (the phone rings) and kept up to date. It says what is waiting and offers only what works from far away |
 | Settings | The settings window of Part 5 with the same buttons, updated in place (without Printer setup and Check install) |
 
@@ -416,7 +416,7 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 Leave **Alerts → Telegram answer buttons** OFF with this panel: that switch is for the other bot (`telegram_bot.txt`, moonraker-telegram-bot), which is an alternative, not an addition.
 
-> Version 1.1 is installed on the FLSUN V400 (2026-11-14): the service runs, the hello message is sent, and windows opened at the printer stay off the chat. The buttons were pressed only against a fake Telegram server and the simulated printer (48 checks: `python telegram_panel/test_panel_bot.py`) — tap through the panel once yourself.
+> Version 1.3 is installed on the FLSUN V400 (2026-11-14): the service runs, the key bar and the pinned panel are sent, and windows opened at the printer stay off the chat. The buttons and keys were pressed only against a fake Telegram server and the simulated printer (65 checks: `python telegram_panel/test_panel_bot.py`) — tap through the panel once yourself.
 
 ---
 

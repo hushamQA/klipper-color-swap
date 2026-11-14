@@ -213,12 +213,21 @@ sim = Sim([MACROS, CS], kin="delta")
 sim.fire("_CS_BOOT")
 MR["sim"] = sim
 console("// old line"); console("// action:prompt_begin OLD WINDOW"); console("// action:prompt_show")
-cfg = {"token": "111:AAA", "chat_id": "777", "moonraker": serve(MRH), "api": serve(TGH), "title": "FLSUN V400", "poll": 0.05, "long_poll": 1, "status_every": 0.3}
+cfg = {"token": "111:AAA", "chat_id": "777", "moonraker": serve(MRH), "api": serve(TGH), "title": "FLSUN V400", "poll": 0.05, "long_poll": 1, "status_every": 0.3,
+       "state": os.path.join(d, "state.json"), "panel_busy": 1000, "panel_idle": 1000, "hello_wait": 0.2}
 bot = B.Bot(cfg)
 bot.start()
 check("start: hello with the Panel key, then the panel", wait(lambda: sum(1 for m, b in TG["calls"] if m == "sendMessage") >= 2)
       and any("keyboard" in (b.get("reply_markup") or {}) for m, b in TG["calls"] if m == "sendMessage"))
 time.sleep(0.3)
+first_panel = TG["next_id"]
+check("start: the panel is pinned, silently", wait(lambda: any(m == "pinChatMessage" and b["message_id"] == first_panel and b.get("disable_notification") for m, b in TG["calls"])), TG["calls"][-3:])
+check("start: the panel message id is remembered on disk", json.load(open(cfg["state"]))["panel_msg"] == first_panel)
+n = len(TG["calls"])
+text_msg("Panel")
+check("Panel key: the typed message and the old panel are deleted, a new panel is sent and pinned",
+      wait(lambda: {1, first_panel} <= set(b["message_id"] for m, b in TG["calls"][n:] if m == "deleteMessage")
+           and any(m == "pinChatMessage" and b["message_id"] == TG["next_id"] and b["message_id"] != first_panel for m, b in TG["calls"][n:])), TG["calls"][n:])
 check("start: an old window on the console is not replayed", not any("OLD WINDOW" in b.get("text", "") for m, b in TG["calls"]))
 p = last("sendMessage")
 check("panel idle: status, HOME, Settings, Emergency stop, no Pause", "State: <b>standby</b>" in p["text"] and "Mode: <b>HOME</b>" in p["text"]
@@ -394,7 +403,72 @@ check("Emergency stop: sent after the second tap", wait(lambda: MR["estop"] == 1
 tap("m:cancel", msg_id=pid); time.sleep(0.4); tap("m:yes_cancel", msg_id=pid)
 check("panel Cancel print: done after the second tap", wait(lambda: sim.pstate == "cancelled"))
 
+# ---------------------------------------------------------------- the fixed bar of keys at the bottom of the chat
+hello = [b for m, b in TG["calls"] if m == "sendMessage" and "keyboard" in (b.get("reply_markup") or {})][0]
+keys = [k["text"] for row in hello["reply_markup"]["keyboard"] for k in row]
+check("key bar: Status, Pause, Resume, Home / Away, Settings, Cancel print, STOP - persistent",
+      keys == ["Status", "Pause", "Resume", "Home / Away", "Settings", "Cancel print", "STOP"] and hello["reply_markup"].get("is_persistent"), keys)
+check("every key is understood by the bot", all(k.lower() in B.KEYS for k in keys))
+sim.pstate, sim.target, sim.paused = "cancelled", 0.0, False
+n, ns = len(TG["calls"]), len(MR["scripts"])
+text_msg("Pause"); text_msg("Resume"); text_msg("Cancel print")
+check("idle: Pause, Resume and Cancel print keys do nothing but show the panel",
+      wait(lambda: sum(1 for m, b in TG["calls"][n:] if m == "sendMessage") >= 3) and MR["scripts"][ns:] == []
+      and not any("Really" in b.get("text", "") for m, b in TG["calls"][n:]), (MR["scripts"][ns:], TG["calls"][n:]))
+check("each key press is deleted from the chat", sum(1 for m, b in TG["calls"][n:] if m == "deleteMessage") >= 3)
+sim.pstate, sim.target = "printing", 240.0
+ns = len(MR["scripts"])
+text_msg("Pause")
+check("printing: the Pause key pauses, and the panel comes to the bottom", wait(lambda: MR["scripts"][ns:] == ["PAUSE"] and sim.paused
+      and "State: <b>paused</b>" in last("sendMessage")["text"]), (MR["scripts"][ns:], last("sendMessage")["text"]))
+text_msg("Resume")
+check("paused: the Resume key resumes", wait(lambda: "RESUME" in MR["scripts"][ns:] and not sim.paused and sim.pstate == "printing"), MR["scripts"][ns:])
+n = len(TG["calls"])
+text_msg("Home / Away")
+check("Home / Away key switches the mode", wait(lambda: sim.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 5 and "Mode: <b>AWAY</b>" in last("sendMessage")["text"]), last("sendMessage")["text"])
+text_msg("Home / Away")
+wait(lambda: sim.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 0)
+e0 = MR["estop"]
+text_msg("STOP")
+check("STOP key: only asks - Yes / No on the panel, nothing sent", wait(lambda: "Really EMERGENCY STOP?" in last("sendMessage")["text"]
+      and [x["text"] for x in buttons(last("sendMessage"))] == ["Yes, EMERGENCY STOP", "No, go back"]) and MR["estop"] == e0, last("sendMessage"))
+tap(find(last("sendMessage"), "No, go back"), msg_id=TG["next_id"]); time.sleep(0.5)
+ns = len(MR["scripts"])
+text_msg("Cancel print")
+check("Cancel print key while printing: only asks", wait(lambda: "Really cancel the print?" in last("sendMessage")["text"]) and "CANCEL_PRINT" not in MR["scripts"][ns:])
+tap(find(last("sendMessage"), "No, go back"), msg_id=TG["next_id"]); time.sleep(0.5)
+text_msg("Settings")
+check("Settings key opens the settings window in the chat", wait(lambda: last_window()[1] is not None and "Color swap settings" in last_window()[1]["text"]
+      and buttons(last_window()[1])), last_window())
+run_gcode("_CS_SET_CLOSE"); time.sleep(2.2)
+text_msg("whatever I type")
+check("any other text just shows the panel", wait(lambda: "State: <b>printing</b>" in last("sendMessage")["text"]))
+
+# ---------------------------------------------------------------- one pinned panel that survives a restart and updates itself
 bot.stop.set()
+time.sleep(1.5)
+pinned = json.load(open(cfg["state"]))["panel_msg"]
+sim.pstate, sim.target = "standby", 0.0
+with LOCK:
+    TG["updates"].clear()      # real Telegram does not replay updates that were already taken
+n = len(TG["calls"])
+cfg2 = dict(cfg, panel_idle=0.4, panel_busy=0.4)
+bot2 = B.Bot(cfg2)
+bot2.start()
+check("restart: the pinned panel is edited in place - no hello, no new message, no new pin",
+      wait(lambda: any(m == "editMessageText" and b["message_id"] == pinned and "State: <b>standby</b>" in b["text"] for m, b in TG["calls"][n:]))
+      and not any(m in ("sendMessage", "pinChatMessage") for m, b in TG["calls"][n:]), TG["calls"][n:])
+n = len(TG["calls"])
+sim.pstate, sim.target = "printing", 240.0
+check("the pinned panel updates by itself when the printer changes",
+      wait(lambda: any(m == "editMessageText" and b["message_id"] == pinned and "State: <b>printing</b>" in b["text"] for m, b in TG["calls"][n:]), 5)
+      and not any(m == "sendMessage" for m, b in TG["calls"][n:]), TG["calls"][n:])
+time.sleep(1.2)
+n = len(TG["calls"])
+time.sleep(1.2)
+check("nothing is sent while nothing changes", not [m for m, b in TG["calls"][n:] if m in ("editMessageText", "sendMessage")], TG["calls"][n:])
+bot2.stop.set()
+
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))
 sys.exit(1 if bad else 0)

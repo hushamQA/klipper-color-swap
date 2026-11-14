@@ -6,9 +6,12 @@ Runs on the printer next to Moonraker. Python 3.7+, standard library only.
   * Everything here is for controlling the printer from FAR AWAY. Buttons that need
     somebody standing at the printer (Unload, Load + purge, Purge, Re-home, material
     presets, Printer setup) are never shown.
-  * Any message (or the "Panel" key) shows the control panel: printer status and
-    buttons for Refresh, Pause / Resume / Cancel, Heaters off, HOME / AWAY, Settings
-    and Emergency stop.
+  * A fixed bar of keys sits at the bottom of the chat (Status, Pause, Resume,
+    Home / Away, Settings, Cancel print, STOP). It never scrolls away.
+  * The control panel is ONE message: pinned, updating itself, and brought back to the
+    bottom of the chat by any key. It shows the printer status and has buttons for
+    Refresh, Pause / Resume / Cancel, Heaters off, HOME / AWAY, Settings and
+    Emergency stop.
   * A waiting color swap gets its own card: what is waiting, and what can be done from
     here - Keep the current color and continue, Wait for me, Cancel print. When the
     swap needs hands (the old filament is out, or it ran out) the card says so.
@@ -32,7 +35,20 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "1.1"
+VERSION = "1.3"
+# The fixed bar of keys at the bottom of the chat (Telegram's "reply keyboard"). It takes
+# the place of the phone keyboard and stays there however many messages arrive, so the
+# controls never scroll away. KEYBOARD_VER changes when the layout does, so it is re-sent.
+KEYBOARD_VER = 2
+KEYBOARD = {"keyboard": [[{"text": "Status"}, {"text": "Pause"}, {"text": "Resume"}],
+                         [{"text": "Home / Away"}, {"text": "Settings"}],
+                         [{"text": "Cancel print"}, {"text": "STOP"}]],
+            "resize_keyboard": True, "is_persistent": True}
+# what each key (or typed word) means: a panel action, or "status" = just show the panel
+KEYS = {"status": "status", "panel": "status", "/panel": "status", "/start": "status",
+        "pause": "pause", "resume": "resume", "home / away": "mode", "settings": "settings",
+        "cancel print": "cancel", "stop": "estop"}
+DEFAULT_STATE = "~/cs-telegram-panel/state.json"
 # The commands a settings window is made of. A window with any other button is not a
 # settings window and is never shown in the chat.
 SETTINGS_CMDS = {"COLOR_SWAP_SETTINGS", "_CS_SET_EDIT", "_CS_SET_ADJ", "_CS_SET_MODE", "_CS_PURGE_LEVEL",
@@ -109,6 +125,10 @@ class Bot:
         self.swap_dirty = False
         self.swap_shown = None        # last text + buttons sent, to skip identical edits
         self.status_at = 0
+        self.panel_shown = None
+        self.kb_ver = 0
+        self.panel_at = 0
+        self.printing = False
 
     # ------------------------------------------------------------ network
     def tg(self, method, timeout=35, **params):
@@ -121,8 +141,9 @@ class Bot:
                 return out.get("result") if out.get("ok") else None
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", "replace")[:200]
-            if "not modified" not in body:
-                log("telegram", method, e.code, body)
+            if "not modified" in body:       # the message already shows exactly this
+                return True
+            log("telegram", method, e.code, body)
             return None
         except Exception as e:           # network down, timeout...
             log("telegram", method, "failed:", type(e).__name__)
@@ -237,13 +258,40 @@ class Bot:
         kb.append([{"text": "Emergency stop", "callback_data": "m:estop"}])
         return "\n".join(lines), {"inline_keyboard": kb}
 
+    def load_state(self):
+        try:
+            d = json.load(open(os.path.expanduser(self.cfg.get("state", DEFAULT_STATE)), encoding="utf-8"))
+            self.panel_msg = d.get("panel_msg")
+            self.kb_ver = d.get("kb_ver", 0)
+        except (OSError, ValueError):
+            pass
+
+    def save_state(self):
+        try:
+            json.dump({"panel_msg": self.panel_msg, "kb_ver": getattr(self, "kb_ver", 0)}, open(os.path.expanduser(self.cfg.get("state", DEFAULT_STATE)), "w", encoding="utf-8"))
+        except OSError as e:
+            log("could not save the state:", e)
+
     def show_panel(self, new=False):
+        """There is ONE panel message. It is pinned to the top of the chat and edited in
+        place. new=True (the Panel key) moves it to the bottom of the chat: the old one
+        is deleted, the new one is pinned."""
         text, kb = self.panel()
         with self.lock:
-            if self.panel_msg and not new and self.edit(self.panel_msg, text, kb):
-                return
+            self.panel_at = time.time()
+            if self.panel_msg and not new:
+                if (text, kb) == self.panel_shown or self.edit(self.panel_msg, text, kb):
+                    self.panel_shown = (text, kb)
+                    return
             r = self.say(text, kb)
-            self.panel_msg = r["message_id"] if r else None
+            if not r:                    # no network: keep the old one, try again later
+                return
+            old, self.panel_msg, self.panel_shown = self.panel_msg, r["message_id"], (text, kb)
+            if old and old != self.panel_msg:
+                self.tg("deleteMessage", chat_id=self.chat, message_id=old)
+            self.tg("pinChatMessage", chat_id=self.chat, message_id=self.panel_msg, disable_notification=True)
+            self.save_state()
+            log("panel sent and pinned")
 
     def panel_action(self, what):
         st = self.status() or {}
@@ -502,7 +550,15 @@ class Bot:
         every = 5 if self.swap_on else float(self.cfg.get("status_every", 10))
         if self.swap_dirty or time.time() - self.status_at >= every:
             self.swap_dirty, self.status_at = False, time.time()
-            self.swap_card()
+            st = self.status()
+            if st:
+                self.printing = st.get("print_stats", {}).get("state") in ("printing", "paused")
+                self.swap_card(st)
+        # the pinned panel keeps itself up to date: every minute while printing or while
+        # a swap waits, every five minutes otherwise
+        if self.panel_msg and time.time() - self.panel_at >= float(
+                self.cfg.get("panel_busy", 60) if (self.printing or self.swap_on) else self.cfg.get("panel_idle", 300)):
+            self.show_panel()
 
     def printer_loop(self):
         while not self.stop.is_set():
@@ -522,7 +578,27 @@ class Bot:
             log("ignored a message from another chat")
             return
         if msg:
-            log("panel asked for")
+            # A key of the fixed bar at the bottom of the chat (or any typed text).
+            key = KEYS.get((msg.get("text") or "").strip().lower(), "status")
+            log("key:", key)
+            # keep the chat clean: the key press itself is removed
+            if msg.get("message_id"):
+                self.tg("deleteMessage", chat_id=self.chat, message_id=msg["message_id"])
+            if key != "status":
+                st = self.status() or {}
+                state = st.get("print_stats", {}).get("state", "")
+                paused = st.get("pause_resume", {}).get("is_paused", False)
+                swap = int((st.get("gcode_macro COLOR_SWAP") or {}).get("state", 0) or 0)
+                # a key only does something when it makes sense right now
+                if key == "pause" and not (state == "printing" and not paused):
+                    key = "status"
+                elif key == "resume" and not ((paused or state == "paused") and not swap):
+                    key = "status"
+                elif key == "cancel" and state not in ("printing", "paused"):
+                    key = "status"
+            if key != "status":
+                self.panel_action(key)       # cancel and stop only ask here; Yes / No is on the panel
+            # the panel always lands at the bottom, right above the keys
             self.show_panel(new=True)
             return
         if not cb:
@@ -588,10 +664,19 @@ class Bot:
         network may not be up yet, so this is tried again for a few minutes."""
         for attempt in range(int(self.cfg.get("hello_tries", 30))):
             self.tg("setMyCommands", commands=[{"command": "panel", "description": "Open the control panel"}])
-            r = self.say("<b>%s</b> - control panel is online (v%s).\nTap <b>Panel</b> below at any time." % (esc(self.cfg["title"]), VERSION),
-                         {"keyboard": [[{"text": "Panel"}]], "resize_keyboard": True, "is_persistent": True})
+            if self.panel_msg and getattr(self, "kb_ver", 0) == KEYBOARD_VER:
+                # not the first start: no new message, the pinned panel is just refreshed
+                st = self.status()
+                text, kb = self.panel(st)
+                if self.edit(self.panel_msg, text, kb):
+                    self.panel_shown, self.panel_at = (text, kb), time.time()
+                    log("online - pinned panel refreshed")
+                    return
+            r = self.say("<b>%s</b> - control panel is online (v%s).\nThe keys at the bottom of this chat stay there: "
+                         "<b>Status</b> brings the panel down to the bottom." % (esc(self.cfg["title"]), VERSION), KEYBOARD)
             if r is not None:
-                log("online - hello message sent")
+                self.kb_ver = KEYBOARD_VER
+                log("online - hello message and the key bar sent")
                 self.show_panel(new=True)
                 return
             if attempt == 0:
@@ -601,6 +686,7 @@ class Bot:
         log("gave up on the hello message - check the token and chat id")
 
     def start(self):
+        self.load_state()
         threading.Thread(target=self.hello, daemon=True).start()
         threading.Thread(target=self.printer_loop, daemon=True).start()
         threading.Thread(target=self.telegram_loop, daemon=True).start()
