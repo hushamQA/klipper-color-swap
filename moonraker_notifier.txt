@@ -1,10 +1,50 @@
-# Phone notifications (Telegram) - any printer - added 2026-11-06, version 6 2026-11-11.
+# Phone notifications (Telegram) - any printer - added 2026-11-06, version 6.4 2026-11-20.
 # color_swap.cfg sends one message per stage (swap waiting, purge done, resume
-# ready, saved print found, runout, reminders, auto continue). Print complete / error / cancelled come from
-# Moonraker itself. Replace BOT_TOKEN and CHAT_ID with yours (README, part 4),
-# then Save & Restart. Until then nothing is sent and nothing else changes.
+# ready, saved print found, runout, reminders, auto continue) as "KIND|text"; the body
+# below turns the kind into a colored mark, an emoji and a bold heading. Print complete /
+# error / cancelled come from Moonraker itself, with the file, time and filament used.
+# Replace BOT_TOKEN and CHAT_ID with yours (README, part 4) and "3D printer" with your
+# printer's name, then Save & Restart. Until then nothing is sent and nothing else changes.
 [notifier phone]
 url: tgram://BOT_TOKEN/CHAT_ID
 events: complete, error, cancelled, remote_action
-title: 3D printer
-body: {event_message if event_name == "remote_action" else ("Print " ~ event_name ~ ": " ~ event_args[1].filename)}
+body_format: html
+title:
+body:
+  {%- set nl = "\n" -%}
+  {%- set k = {
+    "swap": ["🟡", "🎨", "Color swap waiting"],
+    "runout": ["🟠", "🧵", "Filament ran out"],
+    "purge": ["🔵", "🧪", "Purge done - check the color"],
+    "auto": ["🟢", "⏩", "Continuing with the current color"],
+    "off": ["🔵", "🧊", "Nozzle heater switched off"],
+    "remind": ["🟡", "⏰", "Color swap still waiting"],
+    "saved": ["🟣", "💾", "Unfinished print saved"],
+    "resume": ["🔵", "♻️", "Resume ready"],
+    "test": ["⚪", "🔔", "Test message"],
+    "status": ["🔵", "📊", "Color swap status"],
+    "wait": ["🟡", "✋", "Waiting for you"],
+    "keep": ["🟢", "▶️", "Keeping the current color"],
+    "go": ["🟢", "▶️", "Print continues"],
+    "cancel": ["🔴", "⛔", "Print cancelled"],
+    "info": ["⚪", "🔔", "Printer message"]} -%}
+  {%- if event_name == "remote_action" -%}
+    {%- set p = event_message.split("|", 1) -%}
+    {%- set kind = p[0] if (p|length > 1 and p[0] in k) else "info" -%}
+    {%- set h = k[kind] -%}
+    {h[0]} {h[1]} <b>{h[2]}</b>{nl}{(p[1] if p|length > 1 else event_message)|e}
+  {%- else -%}
+    {%- set ps = event_args[1] -%}
+    {%- set d = ps.print_duration|default(0)|int -%}
+    {%- set t = ((d // 3600) ~ "h" ~ ("0" ~ (d % 3600 // 60))[-2:] ~ "m") if d >= 3600 else ((d // 60) ~ " min") -%}
+    {%- if event_name == "complete" -%}
+    🟢 ✅ <b>Print complete</b>
+    {%- elif event_name == "error" -%}
+    🔴 ❌ <b>Print stopped by an error</b>
+    {%- else -%}
+    ⚪ ⛔ <b>Print cancelled</b>
+    {%- endif -%}
+    {nl}📄 {ps.filename|e}{nl}⏱ {t}   🧵 {((ps.filament_used|default(0)|float) / 1000)|round(2)} m
+    {%- if event_name == "error" and ps.message -%}{nl}⚠️ {ps.message|e}{%- endif -%}
+  {%- endif -%}
+  {nl}🖨 <i>3D printer</i>

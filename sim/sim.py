@@ -116,6 +116,9 @@ class Sim:
             "idle_timeout": D(state="Printing"),
             "filament_switch_sensor filament_sensor": D(filament_detected=self.filament, enabled=True),
         }
+        for k in self.settings:             # like Klipper: every [output_pin x] is an object
+            if k.startswith("output_pin "):
+                st[k] = D(value=0.0)
         for name, v in self.vars.items():
             st["gcode_macro " + name] = D(**copy.deepcopy(v))
         return D(**st)

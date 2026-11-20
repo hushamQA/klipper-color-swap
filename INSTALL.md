@@ -2,10 +2,10 @@
 
 # Installing the COLOR_SWAP macro — on any Klipper printer
 
-Version 6.2 — 2026-11-12 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
+Version 6.3 — 2026-11-15 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
 Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
-> **Status of version 6.2:** installed on the FLSUN V400 on 2026-11-12 (config loads, every settings window used on the printer), and run in a simulator (262 checks on a delta, a Cartesian and a CoreXY machine).
+> **Status of version 6.3:** installed on the FLSUN V400 on 2026-11-15 (config loads; the − buttons and the hidden lines checked on the printer), and run in a simulator (337 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.4: 84 checks.
 > A **real color swap has not been printed with it yet**. Do the first swap on a small test model (`test/`) and stay next to the printer.
 > The files in this package are byte-for-byte the ones on the printer.
 

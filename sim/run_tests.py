@@ -22,9 +22,11 @@ def check(name, cond, extra=""):
     print(("PASS " if cond else "FAIL ") + name + (("  -> " + str(extra)) if extra and not cond else ""))
 
 
-def start(kin="delta", macros=V400, x=30.0, y=20.0, z=3.2, layer=5):
+def start(kin="delta", macros=V400, x=30.0, y=20.0, z=3.2, layer=5, home=True):
     s = Sim([macros, CS], kin=kin)
     s.fire("_CS_BOOT")
+    if home:                          # the factory mode is AWAY; most tests check HOME steps
+        set_cfg(s, "auto_continue_min", 0)
     s.pstate, s.target, s.layer = "printing", 240.0, layer
     s.pos = [x, y, z]
     s.e = 0.0
@@ -204,9 +206,28 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s2.cmd("COLOR_SWAP SLOT=1 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2 PURGE=25")
     check(tag + "resume: next swap back to main gets +60", abs(s2.vars["COLOR_SWAP"]["purge_total"] - 100) < 0.01, s2.vars["COLOR_SWAP"]["purge_total"])
 
+    # ---------- 10a. the factory mode is AWAY, 5 min (version 6.3) ----------
+    sd = start(kin, macros, home=False)
+    check(tag + "factory mode: AWAY, 5 min", sd.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 5 and sd.vars["_COLOR_SWAP_CFG"]["away_min"] == 5)
+    sd.cmd(SWAP)
+    labels = [b for t, b in sd.prompt()]
+    check(tag + "factory mode: the old filament stays in, Unload by hand or Keep", cs(sd)["unloaded"] == 0 and any(b.startswith("Unload|") for b in labels)
+          and any(b.startswith("Keep current color|") for b in labels), labels)
+    sd.tick(29)
+    check(tag + "factory mode: still waiting before 5 min", sd.paused and cs(sd)["state"] == 1)
+    sd.tick(2)
+    check(tag + "factory mode: after 5 min the print goes on with the same color", sd.pstate == "printing" and not sd.paused and cs(sd)["state"] == 0
+          and cs(sd)["cur_material"] == "PETG" and cs(sd)["swaps"] == 0)
+
+    sv_ = Sim([macros, CS], kin=kin); sv_.saved = {"cs_set": {"away_min": 1}}; sv_.fire("_CS_BOOT")
+    check(tag + "boot: saved away time 1 + factory AWAY = waits 1 min, as the window says", sv_.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 1, sv_.vars["_COLOR_SWAP_CFG"]["auto_continue_min"])
+    sv_ = Sim([macros, CS], kin=kin); sv_.saved = {"cs_set": {"away_min": 7, "auto_continue_min": 0}}; sv_.fire("_CS_BOOT")
+    check(tag + "boot: saved HOME stays HOME", sv_.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 0)
+
     # ---------- 10. settings window (simplified, version 6.1) ----------
     s = Sim([macros, CS], kin=kin)
     s.fire("_CS_BOOT")
+    set_cfg(s, "auto_continue_min", 0)
     c = s.vars["_COLOR_SWAP_CFG"]
     ngroups = len(s.vars["_CS_SCHEMA"]["groups"])
     s.cmd("COLOR_SWAP_SETTINGS")
@@ -243,19 +264,23 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     check(tag + "settings: 6 advanced groups, 3 setup groups + Check install", len(adv) == 6 and len(setup) == 3 and any("Check install" in b for t, b in s.prompt()), (adv, setup))
     # every numeric setting reachable; hidden ones are exactly the ones that do not apply
     set_cfg(s, "flick", 1)
+    s.settings["output_pin beeper"] = {}         # a printer with a buzzer shows the beep lines
     seen = set()
-    for g in range(ngroups):
-        for p_ in range(4):
-            s.log.clear()
-            s.cmd("COLOR_SWAP_SETTINGS G=%d P=%d" % (g, p_))
-            pr = s.prompt()
-            if not any("Tap a line" in b for t, b in pr):
-                continue
-            for t, b in pr:
-                if t == "prompt_button" and " K=" in b:
-                    seen.add(b.split(" K=")[1].split()[0])
-                    assert len(b.split("|")[0]) <= 48, b
-    set_cfg(s, "flick", 0)
+    for pa in (1, 0):                 # park X / Y only show with the automatic park point OFF
+        set_cfg(s, "park_auto", pa)
+        for g in range(ngroups):
+            for p_ in range(4):
+                s.log.clear()
+                s.cmd("COLOR_SWAP_SETTINGS G=%d P=%d" % (g, p_))
+                pr = s.prompt()
+                if not any("Tap a line" in b for t, b in pr):
+                    continue
+                for t, b in pr:
+                    if t == "prompt_button" and " K=" in b:
+                        seen.add(b.split(" K=")[1].split()[0])
+                        assert len(b.split("|")[0]) <= 48, b
+    set_cfg(s, "flick", 0); set_cfg(s, "park_auto", 1)
+    del s.settings["output_pin beeper"]
     scalars = set(k for k, v in c.items() if isinstance(v, (int, float)))
     hidden = {"away_min", "auto_continue_min"} | ({"wipe_len", "resume_trust_z"} if kin == "delta" else set())
     check(tag + "settings: every numeric setting is reachable", scalars - seen == hidden and not (seen - scalars), (sorted(scalars - seen), sorted(seen - scalars)))
@@ -268,7 +293,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s.cmd("_CS_SET_ADJ K=purge_to_main_extra D=5 G=5 P=0 E=1")
     check(tag + "settings: changed value offers the file default", any("Back to the file default (60)" in b for t, b in s.prompt()), s.prompt())
     s.cmd("_CS_SET_ADJ K=auto_unload T=1 G=3 P=0")
-    check(tag + "settings: star on a changed line", any(b.startswith("* Pull old filament out by itself: OFF") for t, b in s.prompt()), s.prompt())
+    check(tag + "settings: star on a changed line", any(b.startswith("* Pull old filament out (HOME only): OFF") for t, b in s.prompt()), s.prompt())
     s.cmd("COLOR_SWAP_SETTINGS V=adv")
     check(tag + "settings: group shows how many changed", any("Swap (1 changed)" in b for t, b in s.prompt()) and any("Purge details (1 changed)" in b for t, b in s.prompt()), s.prompt())
     s.cmd("_CS_SET_ADJ K=reprime_mm D=-0.5 G=5 P=2 E=1")
@@ -279,12 +304,12 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s3 = Sim([macros, CS], kin=kin); s3.saved = dict(s.saved); s3.fire("_CS_BOOT")
     check(tag + "settings: loaded after restart", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 65 and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 0 and s3.vars["COLOR_SWAP"]["purge_level"] == "custom")
     s3.cmd("_CS_SET_RESET"); s3.cmd("_CS_SET_RESET GO=1")
-    check(tag + "settings: reset all", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 60 and s3.saved["cs_set"] == 0 and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 1 and s3.vars["COLOR_SWAP"]["purge_level"] == "normal")
+    check(tag + "settings: reset all", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 60 and s3.saved["cs_set"] == {"auto_continue_min": 0} and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 1 and s3.vars["COLOR_SWAP"]["purge_level"] == "normal")
     check(tag + "factory reset: asked first, button on the first window", any("Factory reset..." in b for t, b in s3.prompt()) and any("Factory reset done" in l for l in s3.log))
     s3.cmd("COLOR_SWAP_FACTORY_RESET")
     check(tag + "factory reset macro asks before doing it", any("Yes, factory reset" in b for t, b in s3.prompt()))
     s3.cmd("COLOR_SWAP_SET NAME=reprime_mm VALUE=2.5"); s3.cmd("COLOR_SWAP_SET NAME=park_lift VALUE=9999"); s3.cmd("COLOR_SWAP_SET"); s3.cmd("COLOR_SWAP_SET NAME=nonsense VALUE=1")
-    check(tag + "COLOR_SWAP_SET types a value, clamps it, saves it", s3.vars["_COLOR_SWAP_CFG"]["reprime_mm"] == 2.5 and s3.vars["_COLOR_SWAP_CFG"]["park_lift"] == 100 and s3.saved["cs_set"] == {"reprime_mm": 2.5, "park_lift": 100}, s3.saved["cs_set"])
+    check(tag + "COLOR_SWAP_SET types a value, clamps it, saves it", s3.vars["_COLOR_SWAP_CFG"]["reprime_mm"] == 2.5 and s3.vars["_COLOR_SWAP_CFG"]["park_lift"] == 100 and s3.saved["cs_set"] == {"auto_continue_min": 0, "reprime_mm": 2.5, "park_lift": 100}, s3.saved["cs_set"])
     s3.cmd("_CS_SET_RESET GO=1")
     # settings can be opened and changed while printing and while a swap waits
     sp = start(kin, macros)
@@ -306,6 +331,99 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
         s4.settings["force_move"] = {"enable_force_move": True}
         s4.cmd("_CS_RS_PREP")
         check(tag + "trust Z works with enable_force_move on", s4.vars["RESUME_SAVED_PRINT"]["step"] == 1 and any(l.startswith("SET_KINEMATIC_POSITION Z=1.0") for l in s4.log))
+    # ---------- 10b. the buttons as drawn (version 6.3) ----------
+    # Press what the edit window SHOWS, not a typed command: "- 1" must lower the value.
+    sb = Sim([macros, CS], kin=kin); sb.fire("_CS_BOOT")
+    cb = sb.vars["_COLOR_SWAP_CFG"]
+    schema = {it[0]: it for gr in sb.vars["_CS_SCHEMA"]["groups"] for it in gr[2]}
+    def press(label):
+        btn = [b for t, b in sb.prompt() if t == "prompt_button" and b.split("|")[0] == label]
+        assert btn, (label, sb.prompt())
+        sb.cmd(btn[0].split("|")[1])
+    wrong = []
+    for k, it in schema.items():
+        if it[2] == 0 or k == "auto_continue_min":
+            continue
+        step = it[2]
+        lbl = lambda x: str(int(x)) if x == int(x) else str(round(x, 3))
+        sb.cmd("_CS_SET_EDIT K=%s G=-1" % k)
+        v0 = float(cb[k])
+        press("+ " + lbl(step)); v1 = float(cb[k])
+        press("- " + lbl(step)); v2 = float(cb[k])
+        press("- " + lbl(step * 10)); v3 = float(cb[k])
+        press("+ " + lbl(step * 10)); v4 = float(cb[k])
+        lo, hi = float(it[3]), float(it[4])
+        ok = (v1 >= v0 or v0 >= hi) and v2 <= v1 and v3 <= v2 and v4 >= v3 and (v3 < v2 or v2 <= lo or k.startswith("temp_") or k == "purge_max")
+        if not ok:
+            wrong.append((k, v0, v1, v2, v3, v4))
+        sb.cmd("_CS_SET_ADJ K=%s V=%s Q=1" % (k, v0))
+    check(tag + "settings: the drawn - buttons lower and + buttons raise every number", not wrong, wrong)
+    sb.cmd("_CS_SET_EDIT K=away_min G=-1"); press("- 1")
+    check(tag + "settings: away time 5 - 1 = 4 (the reported bug)", cb["away_min"] == 4, cb["away_min"])
+    sb.cmd("_CS_SET_ADJ K=away_min V=5 Q=1")
+    # purge limits never cross
+    sb.cmd("COLOR_SWAP_SET NAME=purge_min VALUE=400")
+    sb.cmd("COLOR_SWAP_SET NAME=purge_max VALUE=20")
+    check(tag + "settings: purge min never above purge max", cb["purge_min"] == 250 and cb["purge_max"] == 250, (cb["purge_min"], cb["purge_max"]))
+    sb.cmd("_CS_SET_RESET GO=1")
+    # a material temperature is 0 or at least min_temp
+    sb.cmd("COLOR_SWAP_SET NAME=temp_pla VALUE=100")
+    t_down = cb["temp_pla"]
+    sb.cmd("_CS_SET_EDIT K=temp_pla G=-1"); press("+ 5")
+    check(tag + "settings: material temp below min_temp goes to 0, + from 0 jumps to min_temp", t_down == 0 and cb["temp_pla"] == 170, (t_down, cb["temp_pla"]))
+    sb.cmd("_CS_SET_RESET GO=1")
+    # lines that do nothing are hidden
+    def group_lines(name):
+        gi = [i for i, gr in enumerate(sb.vars["_CS_SCHEMA"]["groups"]) if gr[0] == name][0]
+        out = []
+        for p_ in range(3):
+            sb.cmd("COLOR_SWAP_SETTINGS G=%d P=%d" % (gi, p_))
+            out += [b.split(" K=")[1].split()[0] for t, b in sb.prompt() if t == "prompt_button" and " K=" in b]
+        return set(out)
+    a_nopin = group_lines("Alerts")
+    check(tag + "settings: no buzzer pin = no buzzer lines (they would do nothing)", not ({"beep", "beep_count", "beep_ms"} & a_nopin) and "remind_min" in a_nopin, a_nopin)
+    sb.settings["output_pin beeper"] = {}
+    a1 = group_lines("Alerts"); set_cfg(sb, "beep", 0); set_cfg(sb, "notify", 0); a0 = group_lines("Alerts")
+    check(tag + "settings: beep and reminder details hidden while those are OFF", {"beep_count", "beep_ms", "remind_min"} <= a1 and not ({"beep_count", "beep_ms", "remind_min"} & a0), (a1, a0))
+    sw = group_lines("Swap"); sb.vars["COLOR_SWAP"]["sensor_obj"] = ""; sw0 = group_lines("Swap")
+    check(tag + "settings: sensor lines only with a filament sensor", {"load_check_sensor", "runout_swap"} <= sw and not ({"load_check_sensor", "runout_swap"} & sw0), (sw, sw0))
+    sb.vars["COLOR_SWAP"]["sensor_obj"] = "filament_switch_sensor filament_sensor"
+    p1 = group_lines("Park point"); set_cfg(sb, "park_auto", 0); p0 = group_lines("Park point")
+    check(tag + "settings: automatic park shows the edge, manual park shows X / Y", "park_edge" in p1 and "park_x" not in p1 and "park_x" in p0 and "park_edge" not in p0, (p1, p0))
+    w1 = group_lines("First layer line"); set_cfg(sb, "first_layer_wipe", 0); w0 = group_lines("First layer line")
+    check(tag + "settings: start line details hidden while the line is OFF", "wipe_z" in w1 and w0 == {"first_layer_wipe", "flick"}, (w1, w0))
+    # factory reset keeps HOME / AWAY
+    sr = Sim([macros, CS], kin=kin); sr.fire("_CS_BOOT")
+    sr.cmd("COLOR_SWAP_SET NAME=away_min VALUE=9"); sr.cmd("COLOR_SWAP_SET NAME=reprime_mm VALUE=3")
+    sr.cmd("_CS_SET_RESET GO=1")
+    rc = sr.vars["_COLOR_SWAP_CFG"]
+    check(tag + "factory reset keeps AWAY (with the factory away time)", rc["auto_continue_min"] == 5 and rc["away_min"] == 5 and rc["reprime_mm"] == 1.5 and sr.saved["cs_set"] == {"auto_continue_min": 5}, (rc["auto_continue_min"], rc["away_min"], sr.saved.get("cs_set")))
+    sr2 = Sim([macros, CS], kin=kin); sr2.saved = dict(sr.saved); sr2.fire("_CS_BOOT")
+    check(tag + "factory reset: AWAY still on after a restart", sr2.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 5)
+    sr.cmd("_CS_SET_MODE"); sr.cmd("_CS_SET_RESET GO=1")
+    check(tag + "factory reset keeps HOME (although the factory mode is AWAY)", rc["auto_continue_min"] == 0 and sr.saved["cs_set"] == {"auto_continue_min": 0}, sr.saved.get("cs_set"))
+    sr3 = Sim([macros, CS], kin=kin); sr3.saved = dict(sr.saved); sr3.fire("_CS_BOOT")
+    check(tag + "factory reset: HOME still on after a restart", sr3.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 0)
+    # HOME / AWAY in the settings window during a swap that already needs hands
+    sx = start(kin, macros); sx.cmd(SWAP); sx.cmd("COLOR_SWAP_SETTINGS")
+    pr = sx.prompt()
+    check(tag + "settings during an unloaded swap: HOME / AWAY says it is for the NEXT swaps", any(b.startswith("Next swaps: I am HOME") for t, b in pr)
+          and any(t == "prompt_text" and "already out" in b for t, b in pr), pr[:3])
+    sy = start(kin, macros); set_cfg(sy, "auto_unload", 0); sy.cmd(SWAP); sy.cmd("COLOR_SWAP_SETTINGS")
+    check(tag + "settings during a swap with the filament still in: AWAY still helps this swap", any(b.startswith("I am HOME") for t, b in sy.prompt()), sy.prompt()[:3])
+    sy.cmd("_CS_SET_MODE"); sy.tick(31)
+    check(tag + "AWAY set during that swap: it goes on by itself", sy.pstate == "printing")
+    # AWAY: the nozzle stays hot until the print goes on by itself
+    sa = start(kin, macros)
+    sa.cmd("_CS_SET_MODE"); set_cfg(sa, "away_min", 10); set_cfg(sa, "auto_continue_min", 10)
+    sa.cmd(SWAP)
+    sa.tick(40)
+    check(tag + "AWAY: no cool-down before the print goes on by itself", cs(sa)["standby"] == 0 and not any("nozzle cooled" in l for l in sa.log), [l for l in sa.log if "cooled" in l])
+    sa.tick(25)
+    check(tag + "AWAY: continues after 10 min with a hot nozzle", sa.pstate == "printing")
+    sh = start(kin, macros); sh.cmd(SWAP); sh.tick(35)
+    check(tag + "HOME: the nozzle still cools after 5 min", cs(sh)["standby"] == 1)
+
     # AWAY really arms the swap
     s = start(kin, macros)
     s.cmd("_CS_SET_MODE")
@@ -348,6 +466,90 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s.pstate, s.duration, s.e, s.target = "printing", 3.0, -2.0, 215.0
     s.cmd("COLOR_SWAP SLOT=2 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2")
     check(tag + "same file printed again: new job, main = PLA, default purge 50+15", cs(s)["main_material"] == "PLA" and cs(s)["done"] == 0 and abs(cs(s)["purge_total"] - 65) < 0.01, (cs(s)["main_material"], cs(s)["purge_total"]))
+
+    # ---------- 15. v6.4: no KlipperScreen popup on top of an open window ----------
+    # A popup ("echo:" or "!!" line) that opens while a swap window is shown hides the
+    # window behind the normal screen and holds every touch until the window closes
+    # (seen on the printer 2026-11-15, -19 and -20). Windows must come AFTER messages.
+    def popups_over_window(sim):
+        bad_, open_ = [], False
+        for l in sim.log:
+            if "action:prompt_show" in l:
+                open_ = True
+            elif "action:prompt_end" in l:
+                open_ = False
+            elif open_ and l.startswith("RESPOND") and "PREFIX=" not in l and "TYPE=command" not in l:
+                bad_.append(l)
+        return bad_
+    flows = []
+    s = start(kin, macros); s.cmd(SWAP); s.fire("_CS_SWAP_CHECKPOINT") if "_CS_SWAP_CHECKPOINT" in s.timers else None
+    for c_ in ("_CS_SET_MATERIAL MATERIAL=PETG", "_CS_UNLOAD", "_CS_CONTINUE", "_CS_LOAD", "_CS_PURGE_MORE MM=15", "_CS_REHOME",
+               "COLOR_SWAP_SETTINGS", "_CS_SET_ADJ K=reprime_mm D=0.5 G=5 P=2 E=1", "_CS_SET_CLOSE", "CS_STATUS", "_CS_CONFIRM", "_CS_BACK"):
+        s.cmd(c_)
+    s.tick(40)
+    flows.append(s)
+    s = start(kin, macros, home=False); s.cmd(SWAP); s.fire("_CS_SWAP_CHECKPOINT"); s.cmd("CS_WAIT"); s.tick(70)
+    flows.append(s)
+    s = start(kin, macros, home=False); s.cmd(SWAP); s.fire("_CS_SWAP_CHECKPOINT"); s.tick(31)
+    flows.append(s)
+    bad_lines = sum((popups_over_window(f) for f in flows), [])
+    check(tag + "no popup message while a swap window is open", not bad_lines, bad_lines[:5])
+    s = start(kin, macros); s.cmd(SWAP)
+    try:
+        s.cmd("RESUME")
+    except Raise:
+        pass
+    if kin == "delta":             # only RESUME macros with the _COLOR_SWAP_ON_RESUME hook refuse
+      check(tag + "RESUME refused: the window comes back AFTER the error", s.timers.get("_CS_REPROMPT") == 0.5 and not popups_over_window(s))
+      s.fire("_CS_REPROMPT")
+      check(tag + "RESUME refused: reprompt shows the swap window", any("Load + purge|_CS_LOAD" in b for t, b in s.prompt()))
+
+    # ---------- 16. v6.4: never wait for the nozzle to cool down ----------
+    s = start(kin, macros)        # PETG 240 -> PLA 215 (cooler)
+    s.cmd(SWAP); s.cmd("_CS_LOAD"); s.cmd("_CS_PURGE_MORE MM=15"); s.cmd("_CS_CONFIRM"); s.cmd("_CS_CONTINUE")
+    waits = [l for l in s.log if l.startswith("TEMPERATURE_WAIT")]
+    check(tag + "no wait for a cool-down (no MAXIMUM), heating still waited for", waits and not any("MAXIMUM" in l for l in waits) and s.pstate == "printing", waits)
+    check(tag + "cooler filament: target drops at once, settle push kept", any(l == "M104 S215.0" for l in s.log) and not any("M106 S255" in l for l in s.log), [l for l in s.log if l.startswith(("M104", "M106"))])
+    s = start(kin, macros, home=False); s.target = 215.0   # AWAY, PLA 215 -> PETG 240 (hotter)
+    s.cmd("COLOR_SWAP SLOT=1 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2 PURGE=40")
+    check(tag + "AWAY: no preheat to the new filament while it may keep the old one", s.target == 215.0 and cs(s)["unloaded"] == 0, s.target)
+    s.cmd("_CS_UNLOAD")
+    check(tag + "AWAY: Unload starts heating for the new filament", s.target == 240.0 and cs(s)["unloaded"] == 1, s.target)
+    s = start(kin, macros, home=False); s.target = 215.0
+    s.cmd("COLOR_SWAP SLOT=1 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2 PURGE=40")
+    s.cmd("_CS_CANCEL_MENU"); s.cmd("_CS_CANCEL_PRINT UNLOAD=1")
+    check(tag + "cancel + unload: heats for the filament IN the nozzle (215), not the next (240)",
+          any(l.startswith("TEMPERATURE_WAIT") and "MINIMUM=212" in l for l in s.log) and not any("MINIMUM=237" in l for l in s.log),
+          [l for l in s.log if l.startswith("TEMPERATURE_WAIT")])
+
+    # ---------- 17. v6.4: phone messages carry their kind ----------
+    s = start(kin, macros); s.cmd(SWAP); s.fire("_CS_ALERT_SEND")
+    check(tag + "alert reaches the notifier as KIND|text", any(l.startswith("REMOTE notify") and "swap|Color swap" in l for l in s.log), [l for l in s.log if l.startswith("REMOTE")])
+
+# ---------- 18. v6.4 START_PRINT (V400 macros): no settle waits ----------
+s = Sim([V400, CS], kin="delta"); s.fire("_CS_BOOT")
+s.cmd("START_PRINT BED_TEMP=80 EXTRUDER_TEMP=250 MESH=0")
+check("[delta] START_PRINT: bed wait ends 3 C below, nozzle 3 C below, no M190 / M109",
+      "TEMPERATURE_WAIT SENSOR=heater_bed MINIMUM=77.0" in s.log and "TEMPERATURE_WAIT SENSOR=extruder MINIMUM=247.0" in s.log
+      and not any(l.startswith(("M190", "M109")) for l in s.log), [l for l in s.log if "WAIT" in l or l.startswith(("M1",))])
+s.target = 250.0
+s.cmd("UNLOAD_FILAMENT TEMP=220")
+check("[delta] UNLOAD_FILAMENT: hotter nozzle unloads at once (target kept, no M109)",
+      s.target == 250.0 and not any(l.startswith("M109") for l in s.log), s.target)
+
+# ---------- 19. v6.4: the KlipperScreen Unload / Load buttons go through a waiting swap ----------
+s = start("delta", V400, home=False); s.cmd(SWAP)
+s.cmd("UNLOAD_FILAMENT")
+check("[delta] UNLOAD_FILAMENT during a swap = the swap's Unload (it knows the filament is out)",
+      cs(s)["unloaded"] == 1 and cs(s)["state"] == 1 and any("Load + purge|_CS_LOAD" in b for t, b in s.prompt()))
+s.cmd("LOAD_FILAMENT")
+check("[delta] LOAD_FILAMENT during a swap = the swap's Load + purge", cs(s)["state"] == 2)
+s.cmd("UNLOAD_FILAMENT")
+check("[delta] UNLOAD_FILAMENT after the purge only shows the swap window", cs(s)["state"] == 2 and any("_CS_CONFIRM" in b for t, b in s.prompt()))
+# ---------- 20. v6.4: with the Telegram panel the notifier stays quiet ----------
+s = start("delta", V400); set_cfg(s, "tg_panel", 1); s.cmd(SWAP); s.fire("_CS_ALERT_SEND")
+check("[delta] tg_panel 1: no notifier call, console line for the panel",
+      not any(l.startswith("REMOTE notify") for l in s.log) and any('MSG="cs_alert swap|' in l for l in s.log))
 
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))
