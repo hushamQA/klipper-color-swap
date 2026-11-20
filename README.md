@@ -12,7 +12,7 @@ Installation: [`INSTALL.md`](INSTALL.md)
 
 ## What's new in version 6.4 (2026-11-20) — no frozen screen, less waiting
 
-> Installed on the FLSUN V400 on 2026-11-20, printer idle. Simulator: 366 checks; Telegram panel 1.5: 87 checks. The touch freeze was found in the KlipperScreen log of three swaps (2026-11-15, -19, -20) and reproduced with a test window on the printer.
+> Installed on the FLSUN V400 on 2026-11-20, printer idle. Simulator: 375 checks; Telegram panel 1.5: 88 checks. The touch freeze was found in the KlipperScreen log of three swaps (2026-11-15, -19, -20) and reproduced with a test window on the printer.
 
 | What was wrong | Now |
 |---|---|
@@ -22,6 +22,10 @@ Installation: [`INSTALL.md`](INSTALL.md)
 | KlipperScreen's own Unload / Load buttons (the panel behind the swap window) bypassed the swap, which then still thought the old filament was in. | During a swap, `UNLOAD_FILAMENT` / `LOAD_FILAMENT` run the swap's own Unload / Load + purge, or show the swap window. |
 | Cancel + unload heated to the NEXT filament's temperature. | It heats for the filament that is in the nozzle. |
 | Every swap sent two almost identical, plain phone messages. | Messages have a colored mark, an emoji and a bold heading. With the Telegram panel installed the panel sends them (one updating card per swap) and the notifier stays quiet for them (`tg_panel`, set by the panel itself). |
+| A cancelled print could only continue from the last save point (a swap or the 1-minute save); the lines printed after it came out twice, on top of the part. | `CANCEL_PRINT` keeps where the print really stopped (`_CS_STOP_POINT`, first line of CANCEL_PRINT). **Resume saved** then offers **From where it stopped (no double lines)** or **Start from the save point**. |
+| A message popup from anything else (not only this macro) could still freeze KlipperScreen behind a window. | Optional `klipperscreen_popup_fix.sh`: one line in KlipperScreen makes its popups non-modal (installed on the V400). |
+| On a pause KlipperScreen opened its Extrude panel behind the swap window. | `auto_open_extrude: False` in `[main]` of KlipperScreen.conf (in `FLSUN_V400/KlipperScreen.conf`; a note in `KlipperScreen_color_swap.conf`). |
+| The Telegram swap card showed only the nozzle. | It also shows the bed temperature and the layer with a progress bar. |
 | FLSUN V400 `START_PRINT`: M190 / M109 waited until the temperature SETTLED; the last 3 °C of the bed took 30–40 s while the screen already showed 79–80 °C. | It starts when the bed is within 3 °C (`BED_BAND=`) and the nozzle within 3 °C. |
 
 **Update the `[notifier phone]` section** in `moonraker.conf` from `moonraker_notifier.txt` (keep your url line), or phone messages show as `swap|Color swap …`.
@@ -493,7 +497,8 @@ A waiting swap no longer loses the print after an hour — see Part 6. The nozzl
 | 🆕 `KlipperScreen_color_swap.conf` | The KlipperScreen buttons for other printers |
 | 🆕 `telegram_panel/` | Telegram control panel with buttons (bot, service, installer, tests) |
 | 🆕 `telegram_bot.txt` | The alternative: moonraker-telegram-bot |
-| 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 366 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
+| 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 375 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
+| 🆕 `klipperscreen_popup_fix.sh` | Optional one-line KlipperScreen fix: message popups no longer hold the touches (see version 6.4) |
 | `ROLLBACK_v5.1/` | Version 5.1 files, to go back |
 
 The save point is a single variable `cs_resume` in `variables.cfg` on the printer. 🆕 The settings changed on the screen are `cs_set` in the same file.

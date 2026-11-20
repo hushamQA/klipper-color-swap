@@ -587,7 +587,14 @@ class Bot:
         else:
             head = "🔵 🧪 Color swap to %s" % new
             body = "🙋 The new filament is loaded. Somebody at the printer has to check the color and press Continue."
-        text = "<b>%s</b>\n⏳ Waiting %d min · 🌡 Nozzle %d°C\n\n%s" % (esc(head), mins, round(st.get("extruder", {}).get("temperature", 0)), body)
+        ex, bed = st.get("extruder", {}), st.get("heater_bed", {})
+        info = (st.get("print_stats", {}) or {}).get("info") or {}
+        prog = (st.get("display_status", {}).get("progress") or st.get("virtual_sdcard", {}).get("progress") or 0) * 100
+        layer = ("📈 Layer <b>%s</b>/%s · %d%% %s\n" % (info.get("current_layer"), info.get("total_layer"), round(prog), bar(prog))
+                 if info.get("total_layer") else ("📈 %d%% %s\n" % (round(prog), bar(prog)) if prog else ""))
+        text = "<b>%s</b>\n⏳ Waiting %d min · 🌡 Nozzle %d°C · 🛏 Bed %d/%d°C\n%s\n%s" % (
+            esc(head), mins, round(ex.get("temperature", 0)), round(bed.get("temperature", 0)), round(bed.get("target", 0)),
+            layer, body)
         if cs.get("standby"):
             text += "\n\n🧊 The nozzle has cooled down to wait. The bed and the motors stay on."
         kb = []

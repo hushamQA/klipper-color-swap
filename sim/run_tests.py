@@ -551,6 +551,33 @@ s = start("delta", V400); set_cfg(s, "tg_panel", 1); s.cmd(SWAP); s.fire("_CS_AL
 check("[delta] tg_panel 1: no notifier call, console line for the panel",
       not any(l.startswith("REMOTE notify") for l in s.log) and any('MSG="cs_alert swap|' in l for l in s.log))
 
+# ---------- 21. v6.4: continue from where a cancelled print stopped ----------
+s = start("delta", V400)
+s.fire("_CS_AUTOSAVE")
+check("[delta] autosave point at 12345", (s.saved.get("cs_resume") or {}).get("pos") == 12345, s.saved.get("cs_resume"))
+s.fpos = 20000; s.pos = [12.0, -8.0, 4.4]
+s.cmd("CANCEL_PRINT")
+sp = s.saved.get("cs_stop") or {}
+check("[delta] cancel while printing: stop point with the print temperature (taken before the heaters go off)",
+      sp.get("pos") == 20000 and sp.get("kind") == "stop" and sp.get("temp") == 240.0 and abs(sp.get("z", 0) - 4.4) < 1e-6, sp)
+check("[delta] cancel keeps the older save point too", (s.saved.get("cs_resume") or {}).get("pos") == 12345)
+s.cmd("RESUME_SAVED_PRINT")
+lbl = [b_ for t, b_ in s.prompt()]
+check("[delta] resume window offers: from where it stopped / from the save point",
+      any("From where it stopped" in b_ and "_CS_RS_USE_STOP" in b_ for b_ in lbl) and any("Start from the save point|_CS_RS_PREP" in b_ for b_ in lbl), lbl)
+s.cmd("_CS_RS_USE_STOP")
+check("[delta] chosen: the stop point becomes the resume point, no second choice left",
+      s.saved["cs_resume"].get("pos") == 20000 and s.saved["cs_stop"] == 0 and not any("_CS_RS_USE_STOP" in b_ for t, b_ in s.prompt()))
+s.cmd("_CS_RS_PREP"); s.cmd("_CS_RS_UNLOAD"); s.cmd("_CS_RS_LOAD"); s.cmd("_CS_RS_CONFIRM"); s.cmd("_CS_RS_GO")
+check("[delta] the file continues at the stop position (M26 S20000), at Z 4.4 with no lift", "M26 S20000" in s.log and any(l.startswith("G1 Z4.4 ") for l in s.log), [l for l in s.log if l.startswith(("M26", "G1 Z"))][-3:])
+s = start("delta", V400); s.cmd(SWAP); s.fpos = 30000; s.cmd("CANCEL_PRINT")
+check("[delta] cancel during a swap: no stop point (the swap point is the place)", not isinstance(s.saved.get("cs_stop"), dict))
+s = start("delta", V400); s.fpos = 500; s.cmd("CANCEL_PRINT"); s.pstate = "standby"
+s.cmd("RESUME_SAVED_PRINT")
+check("[delta] a stop point alone is offered as the resume point", any("where it was cancelled" in b_ for t, b_ in s.prompt()), s.prompt())
+s.pstate = "printing"; s.cmd("START_PRINT BED_TEMP=80 EXTRUDER_TEMP=250 MESH=0")
+check("[delta] a new print forgets the stop point", s.saved.get("cs_stop") == 0)
+
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))
 for r in bad:

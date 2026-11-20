@@ -268,6 +268,12 @@ wait(lambda: "Mode: <b>HOME</b>" in last("sendMessage")["text"])
 wait(lambda: last("pinChatMessage")["message_id"] == TG["next_id"]); time.sleep(0.4)
 p = last("sendMessage")
 
+# ---------------------------------------------------------------- v1.5: the swap card shows bed and layer
+def card_has_bed_and_layer():
+    m_, c_ = last_card()
+    return bool(c_) and "🛏 Bed" in c_["text"] and "Layer <b>" in c_["text"]
+
+
 # ---------------------------------------------------------------- v1.5: the panel sends the phone messages
 check("panel claims the phone messages once (tg_panel 1) while the printer is idle",
       wait(lambda: MR["scripts"].count("_CS_SET_ADJ K=tg_panel V=1 Q=1") == 1), MR["scripts"])
@@ -356,6 +362,7 @@ check("swap card arrives as a NEW message (the phone rings)", wait(lambda: last_
       and TG["next_id"] > before), last_card())
 m, c = last_card(); card_id = TG["next_id"]
 labels = [plain(x["text"]) for x in buttons(c)]
+check("swap card: bed temperature and layer progress", wait(card_has_bed_and_layer), last_card())
 check("card AWAY: Keep, Wait for me, Cancel, Refresh - and says it continues by itself",
       labels == ["Keep the current color and continue", "Wait for me - do not continue", "Cancel print", "Refresh"]
       and "continues by itself" in c["text"] and "still in the nozzle" in c["text"], (labels, c["text"]))

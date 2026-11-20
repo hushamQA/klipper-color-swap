@@ -109,7 +109,7 @@ class Sim:
             "gcode_move": D(gcode_position=D(x=self.pos[0], y=self.pos[1], z=self.pos[2], e=self.e),
                             absolute_extrude=not self.rel_e, homing_origin=D(z=0.0),
                             speed_factor=1.0, extrude_factor=1.0),
-            "virtual_sdcard": D(is_active=self.pstate == "printing", file_position=12345),
+            "virtual_sdcard": D(is_active=self.pstate == "printing", file_position=getattr(self, "fpos", 12345)),
             "save_variables": D(variables=self.saved),
             "exclude_object": D(objects=self.objects, excluded_objects=[]),
             "bed_mesh": D(profile_name="default", profiles={"default": {}}),
