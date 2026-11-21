@@ -2,11 +2,11 @@
 
 # Installing the COLOR_SWAP macro — on any Klipper printer
 
-Version 6.3 — 2026-11-15 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
+Version 6.5 — 2026-11-21 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
 Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
-> **Status of version 6.3:** installed on the FLSUN V400 on 2026-11-15 (config loads; the − buttons and the hidden lines checked on the printer), and run in a simulator (337 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.4: 84 checks.
-> A **real color swap has not been printed with it yet**. Do the first swap on a small test model (`test/`) and stay next to the printer.
+> **Status of version 6.5:** installed on the FLSUN V400 on 2026-11-21 (Klipper ready with no warnings), and run in a simulator (402 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.8: 114 checks. Color swaps have been printed with version 6.4.
+> **New in 6.5, not yet seen in a real print:** a swap that changes the material type waits for you in AWAY too, and the panel warns 10 min before each swap. Watch the first print that has a material change.
 > The files in this package are byte-for-byte the ones on the printer.
 
 ## Contents
@@ -23,7 +23,11 @@ Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 | `README.md` / `README.ar.md` | Step-by-step usage (English / Arabic) |
 | `INSTALL.md` / `INSTALL.ar.md` | This file (English / Arabic) |
 | `test/` | Test model: a plate + the letter T |
-| `ROLLBACK_v5.1/` | 🆕 The files of version 5.1 (to go back) |
+| `telegram_panel/` | The Telegram control panel (one Python file + `install.sh`), see README Part 6 |
+| `klipperscreen_popup_fix.sh` | Optional KlipperScreen fix: message popups no longer hold the touches |
+| `sim/` | Tests: `python sim/run_tests.py` (needs `pip install jinja2`) |
+| `screenshots/` | Pictures of the windows |
+| `ROLLBACK_v6.4/` | 🆕 The files of version 6.4 / panel 1.5 (to go back) |
 | `SHA256SUMS.txt` | Checksum of every file |
 
 ---
@@ -164,11 +168,12 @@ Follow `telegram_bot.txt`, then switch on **Color swap settings → Alerts → T
 
 ---
 
-## Going back to version 5.1 (FLSUN V400)
+## Going back to version 6.4 (FLSUN V400)
 
-1. Upload the files from `ROLLBACK_v5.1/` in place of the existing ones: `color_swap.cfg`, `macros.cfg`, `KlipperScreen.conf`.
+1. Upload `ROLLBACK_v6.4/color_swap.cfg` in place of `color_swap.cfg` (and `ROLLBACK_v6.4/FLSUN_V400/macros.cfg` in place of `macros.cfg`; it is the same file in 6.5).
 2. Make sure the printer is **not printing**, then press **Save & Restart**.
-3. Orca needs no change. The saved settings (`cs_set` in `variables.cfg`) are simply ignored by version 5.1.
+3. Telegram panel: copy `ROLLBACK_v6.4/telegram_panel/cs_panel_bot.py` to `~/cs-telegram-panel/` and run `systemctl --user restart cs-telegram-panel`.
+4. Orca needs no change. 6.5 added no setting, so the saved settings (`cs_set` in `variables.cfg`) stay as they are.
 
 ---
 

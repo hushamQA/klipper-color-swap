@@ -100,10 +100,17 @@ class MRH(BaseHTTPRequestHandler):
             st = s.status()
             self.reply({"result": {"status": {
                 "print_stats": dict(st["print_stats"]), "display_status": {"progress": 0.34},
-                "virtual_sdcard": {"progress": 0.34}, "pause_resume": dict(st["pause_resume"]),
+                "virtual_sdcard": {"progress": 0.34, "file_position": st["virtual_sdcard"]["file_position"]}, "pause_resume": dict(st["pause_resume"]),
                 "webhooks": {"state": MR["klippy"]}, "extruder": dict(st["extruder"]), "heater_bed": {"temperature": 79.6, "target": 80.0 if s.target else 0.0},
                 "gcode_macro COLOR_SWAP": dict(st["gcode_macro COLOR_SWAP"]),
                 "gcode_macro _COLOR_SWAP_CFG": dict(st["gcode_macro _COLOR_SWAP_CFG"])}}})
+        elif u.path.startswith("/server/files/gcodes/"):
+            fn = unquote(u.path[len("/server/files/gcodes/"):])
+            data = MR.get("files", {}).get(fn)
+            if data is None:
+                self.reply({"error": "no file"}, 404)
+            else:
+                self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
         elif u.path == "/server/files/metadata":
             fn = unquote(parse_qs(u.query)["filename"][0])
             if fn in MR["meta"]:
@@ -356,9 +363,10 @@ p = last("sendMessage")
 check("panel printing: file, progress, Pause and Cancel", "Done: <b>34%</b>" in p["text"] and "test.gcode" in p["text"]
       and {"Pause", "Cancel print"} <= set(plain(x["text"]) for x in buttons(p)), p["text"])
 before = TG["next_id"]
-err = run_gcode("COLOR_SWAP SLOT=2 MATERIAL=PLA OLD_MATERIAL=PETG TEMP=215 OLD_TEMP=240 RETRACT=2 PURGE=43")
+# same material type (only the color changes): the only swap AWAY continues by itself (v6.5)
+err = run_gcode("COLOR_SWAP SLOT=2 MATERIAL=PETG OLD_MATERIAL=PETG TEMP=235 OLD_TEMP=240 RETRACT=2 PURGE=43")
 check("swap starts (AWAY: filament stays in)", err is None and sim.vars["COLOR_SWAP"]["state"] == 1 and sim.vars["COLOR_SWAP"]["unloaded"] == 0, err)
-check("swap card arrives as a NEW message (the phone rings)", wait(lambda: last_card()[0] == "sendMessage" and "Color swap to filament 2 PLA" in last_card()[1]["text"]
+check("swap card arrives as a NEW message (the phone rings)", wait(lambda: last_card()[0] == "sendMessage" and "Color swap to filament 2 PETG" in last_card()[1]["text"]
       and TG["next_id"] > before), last_card())
 m, c = last_card(); card_id = TG["next_id"]
 labels = [plain(x["text"]) for x in buttons(c)]
@@ -373,7 +381,7 @@ check("no at-the-printer button ever reached the chat (Unload, Load + purge, Pur
       not (banned & set(allsent)) and not any(t.startswith("Purge +") for t in allsent), sorted(banned & set(allsent)))
 check("the printer's own swap window was not mirrored", last_window()[1] is None or "Color swap 1" not in last_window()[1]["text"])
 text_msg("Panel")
-wait(lambda: "Waiting: color swap to filament 2 PLA" in last("sendMessage")["text"])
+wait(lambda: "Waiting: color swap to filament 2 PETG" in last("sendMessage")["text"])
 p = last("sendMessage")
 check("panel during a swap: says what waits, no Resume, a button to the card", "old filament still in" in p["text"]
       and "Color swap - what can I do?" in [plain(x["text"]) for x in buttons(p)] and "Resume" not in [plain(x["text"]) for x in buttons(p)], p["text"])
@@ -543,6 +551,26 @@ check("card while the printer is still pulling the filament out (HOME): no Keep 
 fake["gcode_macro _COLOR_SWAP_CFG"]["auto_unload"] = 0
 text, kb = bot.swap_view(fake)
 check("HOME with auto unload OFF: the filament stays in, Keep is offered", "Keep the current color and continue" in [plain(x["text"]) for r in kb["inline_keyboard"] for x in r])
+# v1.6: AWAY never goes on by itself with another material
+fm = {"gcode_macro COLOR_SWAP": {"state": 1, "unloaded": 0, "runout": 0, "slot": 2, "material": "PLA", "old_material": "PETG", "waited": 3},
+      "gcode_macro _COLOR_SWAP_CFG": {"auto_continue_min": 5, "away_min": 5, "auto_unload": 1}, "extruder": {"temperature": 240}}
+text, kb = bot.swap_view(fm)
+lb = [plain(x["text"]) for r in kb["inline_keyboard"] for x in r]
+check("AWAY, material changes: card says it will NOT continue, no Wait for me, Keep still there",
+      "will NOT continue by itself" in text and "PETG → PLA" in text and "continues by itself with" not in text
+      and "Keep the current color and continue" in lb and not any("Wait for me" in l for l in lb), (text, lb))
+bot.swap_confirm = ("keep", time.time())
+text, kb = bot.swap_view(fm)
+check("AWAY, material changes: Keep asks first and warns which material the part gets", "Continue the print now" in text
+      and "The slicer wants PLA here: this part will be PETG." in text, text)
+bot.swap_confirm = None
+fm["gcode_macro COLOR_SWAP"]["material"] = "PETG"
+bot.swap_confirm = ("keep", time.time())
+text, kb = bot.swap_view(fm)
+check("same material: Keep asks without the material warning", "Continue the print now" in text and "slicer wants" not in text, text)
+bot.swap_confirm = None
+text, kb = bot.swap_view(fm)
+check("AWAY, same material: card still counts down", "continues by itself" in text and any("Wait for me" in plain(x["text"]) for r in kb["inline_keyboard"] for x in r), text)
 check("needs_hands: unloaded / loading / runout yes, filament still in (auto unload off) no",
       bot.needs_hands({"gcode_macro COLOR_SWAP": {"state": 1, "unloaded": 1}}) and bot.needs_hands({"gcode_macro COLOR_SWAP": {"state": 2}})
       and not bot.needs_hands(fake) and not bot.needs_hands({"gcode_macro COLOR_SWAP": {"state": 0}}))
@@ -565,7 +593,9 @@ MR["delay"] = 0.0
 run_gcode("_CS_SET_ADJ K=auto_continue_min V=0 Q=1")
 
 # ---------------------------------------------------------------- v1.4: the print start message
-MR["meta"]["multi.gcode"] = {"filament_change_count": 3, "filament_colors": ["#111111", "#222222"]}
+# as Moonraker really sends it for an OrcaSlicer file (filament_type is a string)
+MR["meta"]["multi.gcode"] = {"filament_change_count": 3, "filament_colors": ["#111111", "#222222"],
+                             "filament_type": '["PETG", "PLA"]', "filament_weights": [19.46, 1.29]}
 MR["meta"]["single.gcode"] = {"filament_change_count": 0, "filament_colors": ["#111111"]}
 sim.filename, sim.pstate, sim.target = "single.gcode", "printing", 240.0
 time.sleep(1.0)
@@ -577,6 +607,9 @@ check("print with color swaps: a start message with the mode and the AWAY button
       wait(lambda: any(m == "sendMessage" and "Print started" in b["text"] and "Color swaps in this file: 3" in b["text"]
                        and "Mode: <b>HOME</b>" in b["text"] and "before the first swap" in b["text"] for m, b in TG["calls"][n:])), TG["calls"][n:])
 sm = [b for m, b in TG["calls"][n:] if m == "sendMessage" and "Print started" in b["text"]][0]
+check("v1.7 start message: the filaments it uses, and a warning that the material change waits for somebody",
+      "Filaments: 1 PETG (19.5 g) · 2 PLA (1.3 g)" in sm["text"] and "Material change in this print (PETG / PLA)" in sm["text"]
+      and "also in AWAY" in sm["text"], sm["text"])
 tap(find(sm, "I am HOME"), msg_id=bot.start_msg)
 check("start message: AWAY tapped before the swap - applied, the message shows AWAY", wait(lambda: sim.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 5
       and any(m == "editMessageText" and "Print started" in b["text"] and "Mode: <b>AWAY</b>" in b["text"] for m, b in TG["calls"][n:])))
@@ -629,6 +662,70 @@ n = len(TG["calls"])
 time.sleep(1.2)
 check("nothing is sent while nothing changes", not [m for m, b in TG["calls"][n:] if m in ("editMessageText", "sendMessage")], TG["calls"][n:])
 bot2.stop.set()
+
+# ---------------------------------------------------------------- v1.7: filaments_used
+check("filaments_used: a filament with 0 g is not used", B.filaments_used({"filament_type": '["PETG", "PLA", "TPU"]', "filament_weights": [10, 2.5, 0]})
+      == [(1, "PETG", 10.0), (2, "PLA", 2.5)])
+check("filaments_used: 'PLA;PETG' string, no weights = every filament", B.filaments_used({"filament_type": "pla;PETG"}) == [(1, "PLA", None), (2, "PETG", None)])
+check("filaments_used: no filament fields = nothing", B.filaments_used({}) == [])
+bot.start_info = {"file": "same.gcode", "swaps": 2, "fils": [(1, "PLA", 5.0), (2, "PLA", 1.0)]}
+t_, k_ = bot.start_view({"gcode_macro _COLOR_SWAP_CFG": {"auto_continue_min": 5, "away_min": 5}})
+check("start message, colors only (same material): filament list, no material warning", "Filaments: 1 PLA (5.0 g) · 2 PLA (1.0 g)" in t_ and "Material change" not in t_, t_)
+bot.start_info = None
+
+# ---------------------------------------------------------------- v1.8: the next swap and the early warning
+G = (b"M73 P0 R60\n;LAYER_CHANGE\n_CS_CHECKPOINT LAYER=1 TOTAL=40 SLOT=1 MATERIAL=PETG\nG1 X1\n"
+     b"M73 P10 R50\n;LAYER_CHANGE\n_CS_CHECKPOINT LAYER=5 TOTAL=40 SLOT=1 MATERIAL=PETG\nG1 X2\n"
+     b"M73 P20 R40\nCOLOR_SWAP SLOT=2 MATERIAL=PETG OLD_MATERIAL=PETG TEMP=240 OLD_TEMP=240\n"
+     b"M73 P30 R30\n;LAYER_CHANGE\n_CS_CHECKPOINT LAYER=9 TOTAL=40 SLOT=2 MATERIAL=PETG\n"
+     b"M73 P35 R25\nCOLOR_SWAP SLOT=3 MATERIAL=PLA OLD_MATERIAL=PETG TEMP=215 OLD_TEMP=240\nM73 P90 R5\n")
+plan = B.scan_gcode(G.splitlines(True))
+sw = plan["swaps"]
+check("scan: two swaps with layer, slot, materials and slicer minutes", len(sw) == 2 and (sw[0]["layer"], sw[0]["slot"], sw[0]["mat"], sw[0]["r"]) == (5, "2", "PETG", 40)
+      and (sw[1]["layer"], sw[1]["mat"], sw[1]["old"], sw[1]["r"]) == (9, "PLA", "PETG", 25) and G[sw[0]["pos"]:].startswith(b"COLOR_SWAP SLOT=2"), sw)
+check("scan: without _CS_CHECKPOINT the layer comes from ;LAYER_CHANGE", B.scan_gcode([b";LAYER_CHANGE\n", b";LAYER_CHANGE\n", b"COLOR_SWAP SLOT=2\n"])["swaps"][0]["layer"] == 2)
+p10 = G.index(b"M73 P10")
+nx = B.next_swap(plan, p10)
+check("next swap: 10 slicer minutes away at R50", nx["swap"] is sw[0] and nx["min"] == 10, nx)
+check("next swap: scaled when the print runs slower than the slicer said (10 min printed in 20)", B.next_swap(plan, p10, 1200)["min"] == 20)
+check("next swap: after the first swap the second one is next", B.next_swap(plan, sw[0]["pos"] + 5)["swap"] is sw[1])
+check("next swap: none left after the last", B.next_swap(plan, sw[1]["pos"] + 5) is None)
+check("next swap: no M73 = no minutes", B.next_swap({"swaps": [dict(sw[0], r=None)], "m73": []}, 0)["min"] is None)
+
+MR["files"] = {"plan.gcode": G}
+bot.cfg["warn_min"] = 10
+bot.plan, bot.warned, bot.plan_busy = None, set(), None
+stp = {"print_stats": {"state": "printing", "filename": "plan.gcode", "print_duration": 0, "info": {"current_layer": 2, "total_layer": 40}},
+       "virtual_sdcard": {"file_position": 0}, "gcode_macro COLOR_SWAP": {"state": 0},
+       "gcode_macro _COLOR_SWAP_CFG": {"auto_continue_min": 5, "away_min": 5}}
+bot.watch_plan(stp)
+check("the printing file is scanned in the background", wait(lambda: bot.plan is not None and bot.plan["file"] == "plan.gcode", 5) and len(bot.plan["swaps"]) == 2)
+n = len(TG["calls"])
+bot.watch_plan(stp); time.sleep(0.3)
+check("20 min before the swap: no warning yet", not any(m == "sendMessage" for m, b in TG["calls"][n:]))
+check("panel line: next swap, layer, minutes", "Next swap: Filament 2 PETG at layer 5 (in 3 layers) · about <b>20 min</b>" in bot.next_line(stp), bot.next_line(stp))
+stp["virtual_sdcard"]["file_position"] = p10
+stp["print_stats"]["info"]["current_layer"] = 4
+bot.watch_plan(stp); bot.watch_plan(stp); time.sleep(0.3)
+warns = [b for m, b in TG["calls"][n:] if m == "sendMessage" and "Color swap in about" in b["text"]]
+check("10 min before: one warning (not two), AWAY same material says it goes on by itself", len(warns) == 1 and "about 10 min" in warns[0]["text"]
+      and "Filament 2 PETG at layer 5" in warns[0]["text"] and "goes on with the current color" in warns[0]["text"], [w["text"] for w in warns])
+stp["virtual_sdcard"]["file_position"] = G.index(b"M73 P30")
+stp["print_stats"]["info"]["current_layer"] = 9
+bot.watch_plan(stp); time.sleep(0.3)
+warns = [b for m, b in TG["calls"][n:] if m == "sendMessage" and "Color swap in about" in b["text"]]
+check("the material-change swap: its own warning says the print will wait", len(warns) == 2 and "Material change (PETG → PLA): the print will wait for you" in warns[1]["text"], [w["text"] for w in warns])
+check("panel line marks the material change", "material change" in bot.next_line(stp), bot.next_line(stp))
+stp["gcode_macro COLOR_SWAP"]["state"] = 1
+check("a swap waiting: no next-swap line (the swap card says it)", "Next swap" not in bot.panel(dict(stp, **{"extruder": {}, "heater_bed": {}}))[0])
+stp["gcode_macro COLOR_SWAP"]["state"] = 0
+stp["virtual_sdcard"]["file_position"] = len(G) - 3
+check("after the last swap: 'No more color swaps'", bot.next_line(stp) == "🔜 No more color swaps in this print.", bot.next_line(stp))
+bot.cfg["warn_min"] = 0; bot.warned = set(); n = len(TG["calls"])
+stp["virtual_sdcard"]["file_position"] = p10
+bot.watch_plan(stp); time.sleep(0.3)
+check("warn_min 0: no warning", not any(m == "sendMessage" for m, b in TG["calls"][n:]))
+check("warn_min is read from the config file", B.load_config(os.path.join(HERE, "cs_telegram.conf"), "/nonexistent")["warn_min"] == 10)
 
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))

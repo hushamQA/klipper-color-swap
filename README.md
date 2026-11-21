@@ -1,6 +1,6 @@
 **English** | [العربية](README.ar.md)
 
-# Multi-color printing on a single-extruder printer — any Klipper printer (version 6.4)
+# Multi-color printing on a single-extruder printer — any Klipper printer (version 6.5)
 
 **One** print file. Whenever the print needs a new color, the printer pauses on its own and a window appears on the screen.
 You swap the filament, press a button, and the print continues.
@@ -10,7 +10,18 @@ Installation: [`INSTALL.md`](INSTALL.md)
 > 🎬 **Tutorial video (2 minutes, Arabic):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
 > Recorded on **version 2**: the idea is the same, but the windows have changed since (Continue is on the left, purge buttons 15 / 30 / 60 mm, and version 6 added the settings window). This file is the correct reference.
 
-## What's new in version 6.4 (2026-11-20) — no frozen screen, less waiting
+## What's new in version 6.5 (2026-11-21) — AWAY never prints the wrong material
+
+> Installed on the FLSUN V400 on 2026-11-21, printer idle: Klipper ready with no warnings, Telegram panel 1.8 online, the printer files match this package byte for byte. Simulator: 402 checks; Telegram panel 1.8: 114 checks. The 1.8 file scan was run on a real 5 MB print file: 6 swaps found with their layers and minutes.
+
+| What was wrong | Now |
+|---|---|
+| AWAY went on after 5 min with the old filament even when the slicer asked for another **material** (for example PETG part → PLA support interface). The part looked fine but was wrong: the support welded to it, or a TPU / PETG section was printed in PLA. | A swap that changes the material type (`OLD_MATERIAL` ≠ `MATERIAL` from the slicer) **always waits for you**, in AWAY too. The old filament stays in, so **Keep** / `CS_KEEP` can still go on with it on purpose (the Keep window warns which material that part gets). The nozzle cools to standby while it waits. A swap that only changes the color goes on by itself as before. |
+| The window, `CS_STATUS`, the phone message and the Telegram card said "continues by itself" for every swap | They say **the material changes (PETG to PLA): this swap waits for you**, and the Telegram card has no "Wait for me" button for that swap (it already waits) |
+| You found out about a material change only when the swap stopped | 🆕 Telegram panel 1.7: the **print start message** lists the filaments the file really uses (`🧵 Filaments: 1 PETG (19.5 g) · 2 PLA (1.3 g)`) and, when their material types differ, warns at once: **Material change in this print (PETG / PLA): those swaps always wait for somebody at the printer, also in AWAY** |
+| A swap came with no notice: you could not plan to be at the printer | 🆕 Telegram panel 1.8: the panel reads the print file once (in the background) and shows **🔜 Next swap: Filament 2 PLA at layer 42 (in 5 layers) · about 16 min** (plus **✋ material change** when it is one), or **No more color swaps**. **10 min before each swap** one message: **🔔 Color swap in about 10 min**, with what will happen there (AWAY goes on by itself / the material change waits / HOME waits). The minutes come from the slicer's time marks (`M73 R`), corrected by how fast this print really goes. Change the 10 with `warn_min:` in `cs_telegram.conf` (0 = off) |
+
+## Version 6.4 (2026-11-20) — no frozen screen, less waiting
 
 > Installed on the FLSUN V400 on 2026-11-20, printer idle. Simulator: 375 checks; Telegram panel 1.5: 88 checks. The touch freeze was found in the KlipperScreen log of three swaps (2026-11-15, -19, -20) and reproduced with a test window on the printer.
 
@@ -55,7 +66,7 @@ Installation: [`INSTALL.md`](INSTALL.md)
 | Changing a setting meant editing the file and restarting | **Settings window on the screen**: KlipperScreen → **Color swap settings**. Every number, with − / + buttons, kept after a restart (Part 5) |
 | The macro only fitted the FLSUN V400 | **Any printer**: park point, wipe line, sensor and motors are worked out from the printer itself. `COLOR_SWAP_CHECK` shows what it found |
 | The old filament was always pulled out at once | `auto_unload` can be switched **off**: the window then opens with an **Unload** button and a **Keep current color** button |
-| Nobody home at a swap = the print waits | `auto_continue_min`: no button for N minutes → **the print goes on with the current color** (Part 6) |
+| Nobody home at a swap = the print waits | `auto_continue_min`: no button for N minutes → **the print goes on with the current color** (Part 6; since 6.5 never when the material type changes) |
 | After one hour of waiting the motors switched off and the print was lost | The nozzle cools to standby after 5 min and switches off after 60 min, but **the bed and the motors stay on** for 8 hours. Any button reheats |
 | One phone message, easy to miss | A reminder every 10 minutes while a swap waits |
 | No way to answer from outside | **Remote commands** `CS_STATUS`, `CS_KEEP`, `CS_WAIT`, `CS_CONTINUE`, … and Telegram buttons through moonraker-telegram-bot (Part 6) |
@@ -315,7 +326,7 @@ Every change applies at once (no restart) and is kept in `variables.cfg`.
 
 | Button | What it does |
 |---|---|
-| **I am HOME / I am AWAY** | One tap. HOME: every swap waits for you and the old filament is pulled out at once. AWAY: the old filament stays in, a swap waits the away time, then the print goes on with that color. **Set AWAY before the swap starts** — once the filament is out, only somebody at the printer can finish the swap |
+| **I am HOME / I am AWAY** | One tap. HOME: every swap waits for you and the old filament is pulled out at once. AWAY: the old filament stays in, a swap waits the away time, then the print goes on with that color — except when the material type changes: that swap always waits for you. **Set AWAY before the swap starts** — once the filament is out, only somebody at the printer can finish the swap |
 | **Away: continue by itself after N min** | The away time (5 min, at most 60). The nozzle stays hot meanwhile. Changing it while HOME does not switch AWAY on |
 | **Purge amount: LOW / NORMAL / HIGH** | One tap moves six values together: the default purge, both extras and the three purge buttons. NORMAL = the values in the file, LOW = 0.6×, HIGH = 1.8×. If you change one of the six by hand it says **CUSTOM**; the next tap goes back to NORMAL |
 | **Material temperatures** | PLA, PETG, ABS, ASA, TPU. 0 hides a button |
@@ -385,16 +396,17 @@ Four names are still edited in the file, at the end of `_COLOR_SWAP_CFG`: `notif
 
 ### Auto continue with the current color
 
-**AWAY is the factory mode** (since 6.3), with 5 min: whoever starts a print, it finishes by itself. **Color swap settings → I am AWAY** — one tap switches to **HOME** when you want every swap to wait for you. The waiting time is the button below it (5 min).
+**AWAY is the factory mode** (since 6.3), with 5 min: whoever starts a print, a swap that only changes the color goes on by itself. A swap that changes the material type always waits for somebody (6.5). **Color swap settings → I am AWAY** — one tap switches to **HOME** when you want every swap to wait for you. The waiting time is the button below it (5 min).
 
 | What happens at a swap | |
 |---|---|
 | The head parks. The old filament **stays in** (it is what the print may continue with) | Window: **Unload** / **Keep current color** |
 | You press anything | Auto continue is off for this swap; it now waits for you |
 | Nobody presses anything for 5 minutes | The print continues **with the current color**, and a message goes to the phone |
+| 🆕 6.5: the slicer's MATERIAL differs from the old one (PETG → PLA) | **No countdown**: the swap waits for you like HOME, the nozzle cools to standby. **Keep** still goes on with the old filament if you choose it |
 
 - The rest of the file prints in the "wrong" color until the next swap. Nothing else is lost.
-- Use it with the same material type: the slicer still sets the next filament's temperature.
+- Only a swap between filaments of the same material type continues by itself; the macro checks `MATERIAL` / `OLD_MATERIAL` from the slicer line. Without `OLD_MATERIAL` (an old slicer line) it cannot tell and continues as before.
 - Tap **I am AWAY** to switch to HOME: every swap waits for you, and the old filament is pulled out at once. Tap **I am HOME** to go back to AWAY.
 - At start-up AWAY always waits the away time the window shows.
 
@@ -431,15 +443,16 @@ Plain commands that need no window. Send them from anything that reaches the pri
 |---|---|
 | **The key bar** (always at the bottom, in place of the phone keyboard) | **Status**, **Pause**, **Resume**, **Home / Away**, **Settings**, **Cancel print**, **STOP**. It stays there however many messages arrive, so the controls never scroll away. A key only acts when it makes sense (Pause does nothing while idle); Cancel print and STOP only ask, the Yes / No is on the panel |
 | The control panel | **One** message, pinned to the top of the chat, that updates itself (every minute while printing). Any key brings it down to the bottom, right above the keys, and removes the old copy and the key press, so the chat stays clean. State, file, progress, layer, time left, temperatures, the waiting swap, HOME / AWAY. Buttons: **Refresh**, **Pause / Resume**, **Cancel print**, **Heaters off** (idle with a heater on), **I am HOME / AWAY**, **Settings**, **Emergency stop** |
-| 🆕 Print start message | Only for a print with color swaps (Moonraker counts them in the file). It says the mode and has **I am HOME - tap when leaving** / **I am AWAY** and **Settings** — the moment to choose, before the first swap. Its buttons go away once a swap starts |
+| 🆕 Print start message | Only for a print with color swaps (Moonraker counts them in the file). It lists the filaments used (with grams), warns when the material type changes (those swaps wait for you, also in AWAY), says the mode and has **I am HOME - tap when leaving** / **I am AWAY** and **Settings** — the moment to choose, before the first swap. Its buttons go away once a swap starts |
 | The color swap card | Sent by itself when a swap starts (the phone rings) and kept up to date. It says what is waiting and offers only what works from far away |
+| 🆕 Next swap (1.8) | While printing the panel shows **🔜 Next swap: Filament 2 PLA at layer 42 · about 16 min**, and `warn_min` (10) minutes before each swap one message **🔔 Color swap in about 10 min** says what will happen there |
 | Settings | The settings window of Part 5 with the same buttons, updated in place (without Printer setup and Check install) |
 
 **What the color swap card offers**
 
 | Situation | Buttons |
 |---|---|
-| Old filament still in the nozzle (AWAY, or auto unload off) | **Keep the current color and continue**, **Wait for me - do not continue** (while the countdown runs), **Cancel print** |
+| Old filament still in the nozzle (AWAY, or auto unload off) | **Keep the current color and continue**, **Wait for me - do not continue** (while the countdown runs; never for a change of material, which already waits), **Cancel print** |
 | Old filament already out (or being pulled out in HOME), or new one loaded and waiting for the color check | **Cancel print** only — the card says somebody has to be at the printer, and that AWAY must be set before a swap |
 | Filament ran out | **Cancel print** only |
 
@@ -458,7 +471,7 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 Leave **Alerts → Telegram answer buttons** OFF with this panel: that switch is for the other bot (`telegram_bot.txt`, moonraker-telegram-bot), which is an alternative, not an addition.
 
-> Version 1.4 is installed on the FLSUN V400 (2026-11-15): the service runs and the pinned panel was refreshed with no loop. The new buttons were pressed only against a fake Telegram server and the simulated printer (84 checks: `python telegram_panel/test_panel_bot.py`) — tap through the panel once yourself.
+> Version 1.8 is installed on the FLSUN V400 (2026-11-21): the service runs and the pinned panel was refreshed. The new parts were checked against a fake Telegram server and the simulated printer (114 checks: `python telegram_panel/test_panel_bot.py`), and the file scan on a real 5 MB print file on the printer itself (1.5 s). The early warning has not yet been seen during a real print.
 
 ---
 
@@ -497,7 +510,7 @@ A waiting swap no longer loses the print after an hour — see Part 6. The nozzl
 | 🆕 `KlipperScreen_color_swap.conf` | The KlipperScreen buttons for other printers |
 | 🆕 `telegram_panel/` | Telegram control panel with buttons (bot, service, installer, tests) |
 | 🆕 `telegram_bot.txt` | The alternative: moonraker-telegram-bot |
-| 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 375 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
+| 🆕 `sim/` | Tests: `python sim/run_tests.py` renders the macros the way Klipper does and runs 402 checks on a fake delta, Cartesian and CoreXY printer. Needs `pip install jinja2`. Nothing touches a real printer |
 | 🆕 `klipperscreen_popup_fix.sh` | Optional one-line KlipperScreen fix: message popups no longer hold the touches (see version 6.4) |
 | `ROLLBACK_v5.1/` | Version 5.1 files, to go back |
 
@@ -523,7 +536,7 @@ All of them are in the settings window (Part 5), where each one explains itself.
 | `park_x / park_y` | 0 / -140 | Manual park point (`park_auto` 0) |
 | `park_lift / park_min_z` | 10 / 60 | Lift above the model, lowest park height |
 | 🆕 `auto_unload` | 1 | Pull the old filament out at once (0 = Unload button) |
-| 🆕 `auto_continue_min` | 5 (AWAY) | Minutes with no button before the print goes on with the current color. 0 = HOME. Set by the HOME / AWAY button |
+| 🆕 `auto_continue_min` | 5 (AWAY) | Minutes with no button before the print goes on with the current color (never when the material type changes). 0 = HOME. Set by the HOME / AWAY button |
 | 🆕 `away_min` | 5 | The away time the AWAY button uses |
 | 🆕 `load_check_sensor` | 1 | Refuse Load + purge when the sensor sees no filament |
 | 🆕 `runout_swap` | 1 | Runout / M600 use the swap window |

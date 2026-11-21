@@ -14,6 +14,8 @@ if not os.path.exists(V400):          # package / repository layout
 GEN = os.path.join(HERE, "generic_macros.cfg")
 
 SWAP = "COLOR_SWAP SLOT=2 MATERIAL=PLA OLD_MATERIAL=PETG TEMP=215 OLD_TEMP=240 RETRACT=2 PURGE=43.155"
+# Same material type, only the color changes: the only swap AWAY continues by itself (v6.5).
+SAME = "COLOR_SWAP SLOT=2 MATERIAL=PETG OLD_MATERIAL=PETG TEMP=235 OLD_TEMP=240 RETRACT=2 PURGE=43.155"
 results = []
 
 
@@ -106,7 +108,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s = start(kin, macros)
     set_cfg(s, "auto_continue_min", 5)
     z0 = s.pos[2]
-    s.cmd(SWAP)
+    s.cmd(SAME)
     check(tag + "auto-continue: not unloaded, Unload button", cs(s)["unloaded"] == 0 and any("Unload|_CS_UNLOAD" in b for t, b in s.prompt()), s.prompt())
     check(tag + "auto-continue: no unload moves", not any(l.startswith("G1 E-13") for l in s.log))
     e_paused = s.e
@@ -209,7 +211,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     # ---------- 10a. the factory mode is AWAY, 5 min (version 6.3) ----------
     sd = start(kin, macros, home=False)
     check(tag + "factory mode: AWAY, 5 min", sd.vars["_COLOR_SWAP_CFG"]["auto_continue_min"] == 5 and sd.vars["_COLOR_SWAP_CFG"]["away_min"] == 5)
-    sd.cmd(SWAP)
+    sd.cmd(SAME)
     labels = [b for t, b in sd.prompt()]
     check(tag + "factory mode: the old filament stays in, Unload by hand or Keep", cs(sd)["unloaded"] == 0 and any(b.startswith("Unload|") for b in labels)
           and any(b.startswith("Keep current color|") for b in labels), labels)
@@ -409,14 +411,14 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     pr = sx.prompt()
     check(tag + "settings during an unloaded swap: HOME / AWAY says it is for the NEXT swaps", any(b.startswith("Next swaps: I am HOME") for t, b in pr)
           and any(t == "prompt_text" and "already out" in b for t, b in pr), pr[:3])
-    sy = start(kin, macros); set_cfg(sy, "auto_unload", 0); sy.cmd(SWAP); sy.cmd("COLOR_SWAP_SETTINGS")
+    sy = start(kin, macros); set_cfg(sy, "auto_unload", 0); sy.cmd(SAME); sy.cmd("COLOR_SWAP_SETTINGS")
     check(tag + "settings during a swap with the filament still in: AWAY still helps this swap", any(b.startswith("I am HOME") for t, b in sy.prompt()), sy.prompt()[:3])
     sy.cmd("_CS_SET_MODE"); sy.tick(31)
     check(tag + "AWAY set during that swap: it goes on by itself", sy.pstate == "printing")
     # AWAY: the nozzle stays hot until the print goes on by itself
     sa = start(kin, macros)
     sa.cmd("_CS_SET_MODE"); set_cfg(sa, "away_min", 10); set_cfg(sa, "auto_continue_min", 10)
-    sa.cmd(SWAP)
+    sa.cmd(SAME)
     sa.tick(40)
     check(tag + "AWAY: no cool-down before the print goes on by itself", cs(sa)["standby"] == 0 and not any("nozzle cooled" in l for l in sa.log), [l for l in sa.log if "cooled" in l])
     sa.tick(25)
@@ -427,10 +429,33 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     # AWAY really arms the swap
     s = start(kin, macros)
     s.cmd("_CS_SET_MODE")
-    s.cmd(SWAP)
+    s.cmd(SAME)
     check(tag + "AWAY mode: the next swap keeps the filament in", cs(s)["unloaded"] == 0)
     s.tick(30)
     check(tag + "AWAY mode: continues by itself after 5 min", s.pstate == "printing")
+
+    # ---------- 10b. AWAY never goes on with the wrong MATERIAL (v6.5) ----------
+    sm = start(kin, macros, home=False)
+    sm.cmd(SWAP)                                   # PETG -> PLA
+    txt = [b for t, b in sm.prompt() if t == "prompt_text"]
+    check(tag + "material change: old filament stays in, window says it waits", cs(sm)["unloaded"] == 0
+          and any("material changes (PETG to PLA)" in b for b in txt) and not any("more min" in b for b in txt), txt)
+    check(tag + "material change: phone message says it will not continue", any("will NOT continue by itself" in l for l in sm.log), [l for l in sm.log if "_CS_ALERT" in l][:2])
+    sm.tick(6 * 30)
+    check(tag + "material change: still waiting after 30 min", sm.paused and cs(sm)["state"] == 1 and sm.pstate != "printing")
+    rem_ = [l for l in sm.log if "still waiting" in l]
+    check(tag + "material change: the reminder says press Unload and names the change, not 'insert'", rem_ and all("press Unload (material changes PETG to PLA)" in l and "insert" not in l for l in rem_), rem_[:1])
+    check(tag + "material change: the nozzle cools to standby while it waits", cs(sm)["standby"] == 1 and sm.target == 170.0, (cs(sm)["standby"], sm.target))
+    sm.cmd("CS_STATUS")
+    check(tag + "material change: CS_STATUS says why it waits", any("material changes (PETG to PLA), waiting for you" in l for l in sm.log))
+    sm.cmd("_CS_KEEP")
+    check(tag + "material change: Keep warns which material the part gets", any(t == "prompt_text" and "WARNING: the slicer wants PLA" in b for t, b in sm.prompt()), sm.prompt())
+    sm.cmd("_CS_KEEP_GO")
+    check(tag + "material change: Keep on purpose still goes on with the old filament", sm.pstate == "printing" and cs(sm)["cur_material"] == "PETG")
+    sr_ = start(kin, macros, home=False)
+    sr_.cmd("COLOR_SWAP SLOT=2 MATERIAL=PLA TEMP=215 OLD_TEMP=215 RETRACT=2 PURGE=40")     # no OLD_MATERIAL from the slicer
+    sr_.tick(31)
+    check(tag + "unknown old material: AWAY goes on as before", sr_.pstate == "printing")
 
     # ---------- 11. remote + telegram keyboard ----------
     s = start(kin, macros)
@@ -490,7 +515,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     flows.append(s)
     s = start(kin, macros, home=False); s.cmd(SWAP); s.fire("_CS_SWAP_CHECKPOINT"); s.cmd("CS_WAIT"); s.tick(70)
     flows.append(s)
-    s = start(kin, macros, home=False); s.cmd(SWAP); s.fire("_CS_SWAP_CHECKPOINT"); s.tick(31)
+    s = start(kin, macros, home=False); s.cmd(SAME); s.fire("_CS_SWAP_CHECKPOINT"); s.tick(31)
     flows.append(s)
     bad_lines = sum((popups_over_window(f) for f in flows), [])
     check(tag + "no popup message while a swap window is open", not bad_lines, bad_lines[:5])

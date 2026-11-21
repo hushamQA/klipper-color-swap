@@ -39,7 +39,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "1.5"
+VERSION = "1.8"
 # The fixed bar of keys at the bottom of the chat (Telegram's "reply keyboard"). It takes
 # the place of the phone keyboard and stays there however many messages arrive, so the
 # controls never scroll away. KEYBOARD_VER changes when the layout does, so it is re-sent.
@@ -70,7 +70,7 @@ def log(*a):
 
 def load_config(path=DEFAULT_CONF, moonraker_conf=MOONRAKER_CONF):
     cfg = {"token": "", "chat_id": "", "moonraker": "http://127.0.0.1:7125",
-           "api": "https://api.telegram.org", "title": "3D printer", "poll": 1.0}
+           "api": "https://api.telegram.org", "title": "3D printer", "poll": 1.0, "warn_min": 10.0}
     cp = configparser.ConfigParser()
     try:
         cp.read(os.path.expanduser(path), encoding="utf-8")
@@ -81,6 +81,10 @@ def load_config(path=DEFAULT_CONF, moonraker_conf=MOONRAKER_CONF):
             v = cp.get("bot", k, fallback="").strip()
             if v and v not in ("BOT_TOKEN", "CHAT_ID"):
                 cfg[k] = v
+        try:
+            cfg["warn_min"] = max(cp.getfloat("bot", "warn_min", fallback=cfg["warn_min"]), 0.0)
+        except ValueError:
+            log("config: warn_min must be a number of minutes")
     if not cfg["token"] or not cfg["chat_id"]:
         try:
             text = open(os.path.expanduser(moonraker_conf), encoding="utf-8").read()
@@ -129,6 +133,93 @@ def hms(sec):
     return "%dh%02dm" % (sec // 3600, sec % 3600 // 60) if sec >= 3600 else "%dm" % (sec // 60)
 
 
+def as_list(v):
+    """Moonraker gives some filament fields as a list, others as a string: '["PETG", "PLA"]' or 'PETG;PLA'."""
+    if isinstance(v, (list, tuple)):
+        return list(v)
+    if not isinstance(v, str) or not v.strip():
+        return []
+    try:
+        r = json.loads(v)
+        return r if isinstance(r, list) else [r]
+    except ValueError:
+        return [x.strip() for x in v.split(";")]
+
+
+SWAP_RE = re.compile(rb"^COLOR_SWAP\s(.*)")
+LAYER_RE = re.compile(rb"^_CS_CHECKPOINT\s+LAYER=(\d+)")
+M73_RE = re.compile(rb"^M73\s.*\bR(\d+)")
+
+
+def scan_gcode(lines):
+    """Read a G-code file once (an iterable of byte lines). Returns
+    {"swaps": [{"pos", "layer", "slot", "mat", "old", "r"}], "m73": [(pos, minutes left)]}.
+    pos = byte offset of the line, r = the slicer's minutes left at that swap (None without M73)."""
+    pos, layer, changes, r = 0, 0, 0, None
+    swaps, m73 = [], []
+    for line in lines:
+        start, pos = pos, pos + len(line)
+        c = line[:1]
+        if c == b"C":
+            m = SWAP_RE.match(line)
+            if m:
+                kv = dict(re.findall(r"(\w+)=(\S+)", m.group(1).decode("utf-8", "replace")))
+                swaps.append({"pos": start, "layer": layer or changes, "slot": kv.get("SLOT", ""),
+                              "mat": kv.get("MATERIAL", "").upper(), "old": kv.get("OLD_MATERIAL", "").upper(), "r": r})
+        elif c == b"M":
+            m = M73_RE.match(line)
+            if m:
+                r = int(m.group(1))
+                m73.append((start, r))
+        elif c == b"_":
+            m = LAYER_RE.match(line)
+            if m:
+                layer = int(m.group(1))
+        elif c == b";" and line.startswith(b";LAYER_CHANGE"):
+            changes += 1
+    return {"swaps": swaps, "m73": m73}
+
+
+def next_swap(plan, file_pos, print_dur=0.0):
+    """The first swap after file_pos: {"swap", "min" (None without M73)}, or None when no swap is left.
+    The slicer minutes are scaled by how fast this print really goes so far (0.5x - 3x)."""
+    nxt = next((s for s in plan.get("swaps", []) if s["pos"] >= file_pos), None)
+    if not nxt:
+        return None
+    m73 = plan.get("m73") or []
+    now = None
+    for p, r in m73:
+        if p > file_pos:
+            break
+        now = r
+    mins = None
+    if now is not None and nxt["r"] is not None:
+        mins = max(now - nxt["r"], 0)
+        done = m73[0][1] - now if m73 else 0          # slicer minutes already printed
+        if done >= 5 and print_dur > 0:
+            mins = mins * min(max(print_dur / 60.0 / done, 0.5), 3.0)
+    return {"swap": nxt, "min": mins}
+
+
+def filaments_used(meta):
+    """[(slot, material, grams or None)] of the filaments the file really uses (weight > 0).
+    Files without weights: every filament it lists."""
+    types = [str(t or "").strip().upper() for t in as_list(meta.get("filament_type"))]
+    weights = as_list(meta.get("filament_weights"))
+    out = []
+    for i, t in enumerate(types):
+        g = None
+        if i < len(weights):
+            try:
+                g = float(weights[i])
+            except (TypeError, ValueError):
+                g = None
+        if weights and g is not None and g <= 0:
+            continue
+        out.append((i + 1, t, g))
+    return out
+
+
 class Bot:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -163,7 +254,10 @@ class Bot:
         self.job_file = None          # the print the start message was sent for
         self.job_seen = False
         self.start_msg = None
-        self.start_info = None        # {"file", "swaps"}
+        self.start_info = None        # {"file", "swaps", "fils"}
+        self.plan = None              # scan_gcode() of the file printing now, plus "file"
+        self.plan_busy = None         # the file being scanned in the background
+        self.warned = set()           # swap positions the early warning was sent for
         self.tg_panel_set = False     # tg_panel was switched on once (state.json)
         self.notify_on = True
 
@@ -325,6 +419,9 @@ class Bot:
             dur = ps.get("print_duration") or 0
             left = (" · about %s left" % hms(dur / prog * (100 - prog))) if prog >= 2 else ""
             lines.append("⏱ Printing for %s%s" % (hms(dur), left))
+            nl = "" if int(cs.get("state", 0) or 0) else self.next_line(st)
+            if nl:
+                lines.append(nl)
         lines.append("🌡 Nozzle <b>%d</b> / %d°C   🛏 Bed <b>%d</b> / %d°C" % (
             round(ex.get("temperature", 0)), round(ex.get("target", 0)),
             round(bed.get("temperature", 0)), round(bed.get("target", 0))))
@@ -343,7 +440,7 @@ class Bot:
             if pend and pend["away"] != away:
                 lines.append("🔁 Mode: <b>%s</b>, switching to <b>%s</b>" % ("AWAY" if away else "HOME", "AWAY" if pend["away"] else "HOME"))
             else:
-                lines.append("✈️ Mode: <b>AWAY</b> - a swap keeps the old filament in, waits %d min, then the print goes on with that color" % cc.get("auto_continue_min", 0)
+                lines.append("✈️ Mode: <b>AWAY</b> - a swap keeps the old filament in, waits %d min, then the print goes on with that color. A change of material always waits for you." % cc.get("auto_continue_min", 0)
                              if away else "🏠 Mode: <b>HOME</b> - every color swap waits for you, the old filament is pulled out at once")
             if hands:
                 lines.append("🙋 HOME / AWAY cannot help this swap: somebody has to be at the printer. It applies from the next swap.")
@@ -561,7 +658,9 @@ class Bot:
         mins = int(cs.get("waited", 0) or 0) // 60
         new = ("filament %s %s" % (cs.get("slot") or "", cs.get("material") or "")).strip()
         ac = float(cc.get("auto_continue_min", 0) or 0) * 60
-        armed = ac > 0 and not cs.get("touched") and state == 1 and not unloaded and not runout
+        old_mat, new_mat = (cs.get("old_material") or "").upper(), (cs.get("material") or "").upper()
+        mat_hold = bool(old_mat and new_mat and old_mat != new_mat) and not runout   # v6.5: never auto with another material
+        armed = ac > 0 and not cs.get("touched") and state == 1 and not unloaded and not runout and not mat_hold
         unloading = state == 1 and not unloaded and not runout and int(cc.get("auto_unload", 1) or 0) == 1 and ac <= 0
         can_keep = state == 1 and not unloaded and not runout and not unloading
         if runout:
@@ -578,6 +677,9 @@ class Bot:
             if armed:
                 left = max(int((ac - float(cs.get("idle_s", 0) or 0)) / 60 + 0.999), 0)
                 body += "\n\n⏩ Nobody answers: in about <b>%d min</b> the print continues by itself with the current color." % left
+            elif mat_hold and ac > 0:
+                body += ("\n\n✋ The material changes (<b>%s → %s</b>), so the printer will NOT continue by itself. "
+                         "Keep goes on with %s anyway - that part is then %s, not %s." % (esc(old_mat), esc(new_mat), esc(old_mat), esc(old_mat), esc(new_mat)))
             else:
                 body += "\n\n✋ The printer is waiting. It will not continue by itself."
         elif state == 1:
@@ -602,6 +704,8 @@ class Bot:
         if c and time.time() - c[1] < 30 and (c[0] != "keep" or can_keep):
             q = "Continue the print now with the current color?" if c[0] == "keep" else "Really cancel the print?"
             text += "\n\n❓ <b>%s</b>" % q
+            if c[0] == "keep" and mat_hold:      # the same warning as the printer's Keep window
+                text += "\n⚠️ The slicer wants %s here: this part will be %s." % (esc(new_mat), esc(old_mat))
             kb.append([{"text": "✅ Yes, continue" if c[0] == "keep" else "⛔ Yes, cancel the print", "callback_data": "s:yes_" + c[0]},
                        {"text": "↩️ No, go back", "callback_data": "s:no"}])
             return text, {"inline_keyboard": kb}
@@ -709,17 +813,18 @@ class Bot:
         if not fn or fn == self.job_file:
             return
         self.job_file = fn
-        swaps = None
+        swaps, fils = None, []
         try:
             meta = self.mr("/server/files/metadata?filename=" + urllib.parse.quote(fn)) or {}
             swaps = meta.get("filament_change_count")
             if swaps is None and meta.get("filament_colors") is not None:
                 swaps = 1 if len(set(meta["filament_colors"])) > 1 else 0
+            fils = filaments_used(meta)
         except Exception:
             pass
         if swaps == 0:
             return                            # one color: HOME / AWAY does not matter
-        self.start_info = {"file": fn, "swaps": swaps}
+        self.start_info = {"file": fn, "swaps": swaps, "fils": fils}
         self.start_msg = None
         text, kb = self.start_view(st)
         r = self.say(text, kb)
@@ -737,9 +842,17 @@ class Bot:
         lines = ["🚀 <b>Print started</b>", "📄 " + esc(info.get("file", ""))]
         if n:
             lines.append("🎨 Color swaps in this file: %d" % n)
+        fils = info.get("fils") or []
+        if len(fils) > 1:
+            lines.append("🧵 Filaments: " + " · ".join("%d %s%s" % (slot, esc(t or "?"), (" (%.1f g)" % g) if g else "")
+                                                     for slot, t, g in fils))
+        mats = sorted({t for slot, t, g in fils if t})
+        if len(mats) > 1:
+            lines.append("⚠️ <b>Material change in this print (%s)</b>: those swaps always wait for somebody at the printer, "
+                         "also in AWAY. Nobody there = the print waits." % esc(" / ".join(mats)))
         lines.append("")
         if target:
-            lines.append("✈️ Mode: <b>AWAY</b> - a swap keeps the old filament in, waits %d min, then the print goes on with that color."
+            lines.append("✈️ Mode: <b>AWAY</b> - a swap keeps the old filament in, waits %d min, then the print goes on with that color. A change of material always waits for you."
                          % max(float(cc.get("auto_continue_min", 0) or 0), float(cc.get("away_min", 5) or 5)))
         else:
             lines.append("🏠 Mode: <b>HOME</b> - every swap waits for you and the old filament is pulled out at once.")
@@ -755,6 +868,76 @@ class Bot:
         kb = [[{"text": "✈️ I am AWAY - tap when home" if target else "🏠 I am HOME - tap when leaving", "callback_data": "p:mode"},
                {"text": "⚙️ Settings", "callback_data": "p:settings"}]]
         return "\n".join(lines), {"inline_keyboard": kb}
+
+    # ------------------------------------------------------------ the next swap (v1.8)
+    def watch_plan(self, st):
+        """Scan the printing file once for its swaps, then send one early warning per swap."""
+        ps = st.get("print_stats", {})
+        fn = ps.get("filename") or ""
+        if ps.get("state") not in ("printing", "paused") or not fn:
+            return
+        if (not self.plan or self.plan["file"] != fn) and self.plan_busy != fn:
+            self.plan_busy = fn
+            threading.Thread(target=self.load_plan, args=(fn,), daemon=True).start()
+            return
+        if not self.plan or self.plan["file"] != fn or ps.get("state") != "printing":
+            return
+        if int((st.get("gcode_macro COLOR_SWAP") or {}).get("state", 0) or 0):
+            return                                # a swap is waiting: its card says everything
+        warn = float(self.cfg.get("warn_min", 10) or 0)
+        nx = next_swap(self.plan, (st.get("virtual_sdcard") or {}).get("file_position") or 0, ps.get("print_duration") or 0)
+        if not warn or not nx or nx["min"] is None or nx["swap"]["pos"] in self.warned:
+            return
+        if nx["min"] <= warn:
+            self.warned.add(nx["swap"]["pos"])
+            self.say("🔔 <b>Color swap in about %d min</b>\n%s" % (max(round(nx["min"]), 1), self.swap_note(st, nx, short=False)))
+            log("early warning: swap at layer", nx["swap"]["layer"], "in", round(nx["min"], 1), "min")
+
+    def load_plan(self, fn):
+        try:
+            url = self.cfg["moonraker"] + "/server/files/gcodes/" + urllib.parse.quote(fn)
+            with urllib.request.urlopen(url, timeout=60) as r:
+                plan = scan_gcode(r)
+            plan["file"] = fn
+            self.plan, self.warned = plan, set()
+            log("file scanned:", fn, len(plan["swaps"]), "swaps,", len(plan["m73"]), "time marks")
+        except Exception as e:
+            log("file scan failed:", fn, type(e).__name__)
+            self.plan, self.warned = {"file": fn, "swaps": [], "m73": []}, set()   # once per file, no retry loop
+        finally:
+            self.plan_busy = None
+
+    def swap_note(self, st, nx, short=True):
+        """'filament 2 PLA at layer 34 (in 5 layers)' plus what will happen there."""
+        sw = nx["swap"]
+        cc = st.get("gcode_macro _COLOR_SWAP_CFG") or {}
+        info = (st.get("print_stats", {}) or {}).get("info") or {}
+        cur = int(info.get("current_layer") or 0)
+        where = "layer %d" % sw["layer"] + ((" (in %d layers)" % (sw["layer"] - cur)) if cur and sw["layer"] - cur > 1 else "")
+        text = "🎨 Filament %s %s at %s" % (esc(sw["slot"]), esc(sw["mat"]), where)
+        if short:
+            return text
+        away = float(cc.get("auto_continue_min", 0) or 0)
+        if sw["mat"] and sw["old"] and sw["mat"] != sw["old"]:
+            text += "\n✋ Material change (%s → %s): the print will wait for you." % (esc(sw["old"]), esc(sw["mat"]))
+        elif away > 0:
+            text += "\n✈️ AWAY: nobody there = after %d min the print goes on with the current color." % away
+        else:
+            text += "\n🏠 HOME: the print will wait for you."
+        return text
+
+    def next_line(self, st):
+        """The panel line about the next swap, '' when unknown."""
+        ps = st.get("print_stats", {})
+        if not self.plan or self.plan["file"] != (ps.get("filename") or "") or not self.plan["swaps"]:
+            return ""
+        nx = next_swap(self.plan, (st.get("virtual_sdcard") or {}).get("file_position") or 0, ps.get("print_duration") or 0)
+        if not nx:
+            return "🔜 No more color swaps in this print."
+        eta = (" · about <b>%d min</b>" % max(round(nx["min"]), 1)) if nx["min"] is not None else ""
+        sw = nx["swap"]
+        mat = " · ✋ material change" if sw["mat"] and sw["old"] and sw["mat"] != sw["old"] else ""
+        return "🔜 Next swap: " + self.swap_note(st, nx)[2:] + eta + mat
 
     def refresh_start(self, st=None):
         if not self.start_msg:
@@ -807,6 +990,7 @@ class Bot:
                 self.printing = st.get("print_stats", {}).get("state") in ("printing", "paused")
                 self.claim_alerts(st)
                 self.watch_job(st)
+                self.watch_plan(st)
                 self.swap_card(st)
                 if self.swap_on and self.start_info:
                     self.start_info["swap"] = True     # this print had its first swap
