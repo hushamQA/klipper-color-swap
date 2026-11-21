@@ -10,6 +10,8 @@ Installation: [`INSTALL.md`](INSTALL.md)
 > 🎬 **Tutorial video (2 minutes, Arabic):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
 > Recorded on **version 2**: the idea is the same, but the windows have changed since (Continue is on the left, purge buttons 15 / 30 / 60 mm, and version 6 added the settings window). This file is the correct reference.
 
+Screenshots: [`screenshots/`](screenshots/) — taken 2026-11-21 on the FLSUN V400 with version 6.5 and Telegram panel 1.8: KlipperScreen (the printer's 1024×600 screen), Mainsail and Telegram. The printer windows are the macros' own windows, shown on the idle printer; the Telegram messages are the bot's own messages for a real print file.
+
 ## What's new in version 6.5 (2026-11-21) — AWAY never prints the wrong material
 
 > Installed on the FLSUN V400 on 2026-11-21, printer idle: Klipper ready with no warnings, Telegram panel 1.8 online, the printer files match this package byte for byte. Simulator: 402 checks; Telegram panel 1.8: 114 checks. The 1.8 file scan was run on a real 5 MB print file: 6 swaps found with their layers and minutes.
@@ -166,6 +168,11 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 
 ### Window 1: "Color swap - load filament 2"
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_04_swap_home_unloaded.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (HOME: the old filament is already out)</sub></td>
+<td align="center"><img src="screenshots/mainsail_04_swap_home_unloaded.png" width="300" alt="Mainsail"><br><sub>Mainsail — the same window</sub></td>
+</tr></table>
+
 1. Pull out the old filament.
 2. Insert the new filament.
 3. Press **Load + purge**.
@@ -180,6 +187,11 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 
 > 🆕 While loading and purging, a window **with no buttons** appears ("please wait"). Wait until it closes.
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_05_purge_check.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_05_purge_check.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
 4. Look at the filament coming out: is the color mixed? Press **Purge +15**, **+30** or **+60** (or the **Purge +30mm** button at the bottom right).
 5. **Cut** the strand at the nozzle with tweezers. Do not pull it hard (pulling empties the nozzle, and the lines start broken).
 6. Press **Continue...** (bottom **left**) → then **Yes, continue print**. What happens next:
@@ -193,6 +205,11 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 | Window 1 | Cancel... | Unload again | **Load + purge** |
 | Window 2 | **Continue...** (asks a second time) | Cancel... | Purge +30mm |
 | The question | Back | — | **Yes, continue print** |
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_06_confirm.png" width="460" alt="KlipperScreen"><br><sub>The question after Continue... (KlipperScreen)</sub></td>
+<td align="center"><img src="screenshots/mainsail_06_confirm.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
 
 Two taps in a row on the same spot never continue the print.
 
@@ -324,6 +341,11 @@ Every change applies at once (no restart) and is kept in `variables.cfg`.
 
 ### The first window — what you change from print to print
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_07_settings.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (scroll for the rest)</sub></td>
+<td align="center"><img src="screenshots/mainsail_07_settings.png" width="300" alt="Mainsail"><br><sub>Mainsail — the whole window</sub></td>
+</tr></table>
+
 | Button | What it does |
 |---|---|
 | **I am HOME / I am AWAY** | One tap. HOME: every swap waits for you and the old filament is pulled out at once. AWAY: the old filament stays in, a swap waits the away time, then the print goes on with that color — except when the material type changes: that swap always waits for you. **Set AWAY before the swap starts** — once the filament is out, only somebody at the printer can finish the swap |
@@ -371,6 +393,11 @@ Mainsail shows exactly the same windows as KlipperScreen (it draws the same prom
 
 ### Advanced
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_08_settings_advanced.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_08_settings_advanced.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
 | Group | What is in it |
 |---|---|
 | Swap | Pull the old filament out by itself, refuse loading without filament, runout window, speed back to the print, heat band |
@@ -404,6 +431,27 @@ Four names are still edited in the file, at the end of `_COLOR_SWAP_CFG`: `notif
 | You press anything | Auto continue is off for this swap; it now waits for you |
 | Nobody presses anything for 5 minutes | The print continues **with the current color**, and a message goes to the phone |
 | 🆕 6.5: the slicer's MATERIAL differs from the old one (PETG → PLA) | **No countdown**: the swap waits for you like HOME, the nozzle cools to standby. **Keep** still goes on with the old filament if you choose it |
+
+**Same material, only the color changes** — the window counts down:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
+**🆕 6.5: the material changes (PETG → PLA)** — no countdown, the swap waits for you:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
+**Keep current color** on a material change warns which material that part gets:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
 
 - The rest of the file prints in the "wrong" color until the next swap. Nothing else is lost.
 - Only a swap between filaments of the same material type continues by itself; the macro checks `MATERIAL` / `OLD_MATERIAL` from the slicer line. Without `OLD_MATERIAL` (an old slicer line) it cannot tell and continues as before.
@@ -439,6 +487,15 @@ Plain commands that need no window. Send them from anything that reaches the pri
 
 **It is for controlling the printer from far away.** Anything that needs somebody standing at the printer — Unload, Load + purge, Purge, Re-home, the material buttons, Printer setup — is deliberately **not** in the chat.
 
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_6_keyboard.png" width="620" alt="Telegram"><br><sub>The key bar (always at the bottom)</sub></td>
+</tr></table>
+
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_2_panel_next_swap.png" width="360" alt="Telegram"><br><sub>The control panel while printing, with the next swap (1.8)</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_1_print_start.png" width="360" alt="Telegram"><br><sub>Print start message (1.7) and the warning 10 min before a swap (1.8)</sub></td>
+</tr></table>
+
 | In the chat | What it is |
 |---|---|
 | **The key bar** (always at the bottom, in place of the phone keyboard) | **Status**, **Pause**, **Resume**, **Home / Away**, **Settings**, **Cancel print**, **STOP**. It stays there however many messages arrive, so the controls never scroll away. A key only acts when it makes sense (Pause does nothing while idle); Cancel print and STOP only ask, the Yes / No is on the panel |
@@ -455,6 +512,12 @@ Plain commands that need no window. Send them from anything that reaches the pri
 | Old filament still in the nozzle (AWAY, or auto unload off) | **Keep the current color and continue**, **Wait for me - do not continue** (while the countdown runs; never for a change of material, which already waits), **Cancel print** |
 | Old filament already out (or being pulled out in HOME), or new one loaded and waiting for the color check | **Cancel print** only — the card says somebody has to be at the printer, and that AWAY must be set before a swap |
 | Filament ran out | **Cancel print** only |
+
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_3_swap_card_away.png" width="300" alt="Telegram"><br><sub>AWAY, only the color changes: counts down</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_4_swap_card_material.png" width="300" alt="Telegram"><br><sub>AWAY, the material changes: waits for you</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_5_keep_warning.png" width="300" alt="Telegram"><br><sub>Keep asks first and warns</sub></td>
+</tr></table>
 
 - Keep, Cancel print and Emergency stop ask a second time.
 - When the swap ends the card closes itself and says how: continued with which filament, or cancelled.

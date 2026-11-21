@@ -26,7 +26,7 @@
 | `telegram_panel/` | لوحة التحكم في Telegram (ملف Python واحد + `install.sh`)، انظر الجزء 6 في README |
 | `klipperscreen_popup_fix.sh` | إصلاح اختياري في KlipperScreen: الرسائل المنبثقة لا تحجز اللمس |
 | `sim/` | اختبارات: `python sim/run_tests.py` (يحتاج `pip install jinja2`) |
-| `screenshots/` | صور النوافذ |
+| `screenshots/` | لقطات جديدة لكل النوافذ: KlipperScreen و Mainsail و Telegram (مستعملة في README) |
 | `ROLLBACK_v6.4/` | 🆕 ملفات الإصدار 6.4 / اللوحة 1.5 (للرجوع) |
 | `SHA256SUMS.txt` | بصمة كل ملف |
 

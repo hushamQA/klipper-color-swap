@@ -26,7 +26,7 @@ Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 | `telegram_panel/` | The Telegram control panel (one Python file + `install.sh`), see README Part 6 |
 | `klipperscreen_popup_fix.sh` | Optional KlipperScreen fix: message popups no longer hold the touches |
 | `sim/` | Tests: `python sim/run_tests.py` (needs `pip install jinja2`) |
-| `screenshots/` | Pictures of the windows |
+| `screenshots/` | New screenshots of every window: KlipperScreen, Mainsail and Telegram (used in README) |
 | `ROLLBACK_v6.4/` | 🆕 The files of version 6.4 / panel 1.5 (to go back) |
 | `SHA256SUMS.txt` | Checksum of every file |
 

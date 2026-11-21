@@ -10,6 +10,8 @@
 > 🎬 **فيديو الشرح (دقيقتان):** [`video/COLOR_SWAP_tutorial_AR_v2.mp4`](video/COLOR_SWAP_tutorial_AR_v2.mp4)
 > صُوّر على **الإصدار 2**: الفكرة نفسها، لكن النوافذ تغيّرت بعده (Continue صار على اليسار، وأزرار الصخ 15 / 30 / 60 مم، والإصدار 6 أضاف نافذة الإعدادات). المرجع الصحيح هو هذا الملف.
 
+لقطات الشاشة: [`screenshots/`](screenshots/) — صُوّرت يوم 2026-11-21 على FLSUN V400 بالإصدار 6.5 ولوحة Telegram 1.8: شاشة الطابعة KlipperScreen (‏1024×600) و Mainsail و Telegram. نوافذ الطابعة هي نوافذ الماكرو نفسها عُرضت والطابعة متوقفة، ورسائل Telegram هي رسائل البوت نفسه لملف طباعة حقيقي. نصوص النوافذ بالإنجليزية كما تظهر على الشاشة.
+
 ## ما الجديد في الإصدار 6.5 (2026-11-21) — وضع AWAY لا يطبع بخامة خاطئة
 
 > مثبّت على FLSUN V400 يوم 2026-11-21 والطابعة متوقفة: Klipper جاهز بلا تحذيرات، ولوحة Telegram 1.8 تعمل، وملفات الطابعة مطابقة لهذه الحزمة بايتًا ببايت. المحاكاة: 402 فحصًا؛ لوحة Telegram 1.8: ‏114 فحصًا. قراءة الملف في 1.8 جُرّبت على ملف طباعة حقيقي (5 MB): وجدت 6 تبديلات بطبقاتها ودقائقها.
@@ -163,6 +165,11 @@
 
 ### النافذة 1: «Color swap - load filament 2»
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_04_swap_home_unloaded.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (وضع HOME: الخيط القديم خرج)</sub></td>
+<td align="center"><img src="screenshots/mainsail_04_swap_home_unloaded.png" width="300" alt="Mainsail"><br><sub>Mainsail — نفس النافذة</sub></td>
+</tr></table>
+
 1. اسحب الخيط القديم.
 2. أدخل الخيط الجديد.
 3. اضغط **Load + purge**.
@@ -177,6 +184,11 @@
 
 > 🆕 أثناء التحميل والصخ تظهر نافذة **بلا أزرار** («please wait»). انتظرها حتى تختفي.
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_05_purge_check.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_05_purge_check.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
 4. انظر للخيط الخارج: لونه مختلط؟ اضغط **Purge +15** أو **+30** أو **+60** (أو زر **Purge +30mm** في الأسفل يمينًا).
 5. **اقطع** الخيط عند الفوهة بالملقط. لا تشدّه بقوة (الشدّ يُفرغ الفوهة فتبدأ الخطوط متقطعة).
 6. اضغط **Continue...** (أسفل **يسار**) ← ثم **Yes, continue print**. ما يحدث بعده:
@@ -190,6 +202,11 @@
 | النافذة 1 | Cancel... | Unload again | **Load + purge** |
 | النافذة 2 | **Continue...** (يسأل مرة ثانية) | Cancel... | Purge +30mm |
 | السؤال | Back | — | **Yes, continue print** |
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_06_confirm.png" width="460" alt="KlipperScreen"><br><sub>السؤال بعد Continue... ‏(KlipperScreen)</sub></td>
+<td align="center"><img src="screenshots/mainsail_06_confirm.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
 
 ضغطتان متتاليتان في نفس المكان لا تكملان الطباعة أبدًا.
 
@@ -321,6 +338,11 @@
 
 ### النافذة الأولى — ما تغيّره من طباعة لأخرى
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_07_settings.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (مرّر لرؤية الباقي)</sub></td>
+<td align="center"><img src="screenshots/mainsail_07_settings.png" width="300" alt="Mainsail"><br><sub>Mainsail — النافذة كاملة</sub></td>
+</tr></table>
+
 | الزر | ماذا يفعل |
 |---|---|
 | **I am HOME / I am AWAY** | ضغطة واحدة. HOME: كل تبديل ينتظرك ويُسحب الخيط القديم فورًا. AWAY: الخيط القديم يبقى، والتبديل ينتظر مدة الغياب ثم تكمل الطباعة به — إلا إذا تغيّر نوع الخامة: ذلك التبديل ينتظرك دائمًا. **اضبط AWAY قبل بداية التبديل** — بعد خروج الخيط لا يكمل التبديل إلا شخص عند الطابعة |
@@ -368,6 +390,11 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 
 ### Advanced
 
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_08_settings_advanced.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_08_settings_advanced.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
 | المجموعة | ماذا فيها |
 |---|---|
 | Swap | سحب الخيط القديم تلقائيًا، رفض التحميل بلا خيط، نافذة نفاد الخيط، سرعة الرجوع للطباعة، هامش الحرارة |
@@ -401,6 +428,27 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 | ضغطت أي زر | الإكمال التلقائي يتوقف لهذا التبديل، والطابعة تنتظرك |
 | لا أحد يضغط شيئًا 5 دقائق | الطباعة تكمل **باللون الحالي**، وتصل رسالة للهاتف |
 | 🆕 6.5: خامة السلايسر (MATERIAL) تختلف عن القديمة (PETG ← PLA) | **لا عدّ تنازلي**: التبديل ينتظرك مثل HOME، والفوهة تبرد إلى حرارة الانتظار. زر **Keep** ما زال يكمل بالخيط القديم إن اخترته |
+
+**نفس الخامة، يتغيّر اللون فقط** — النافذة تعدّ تنازليًا:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
+**🆕 6.5: الخامة تتغيّر (PETG ← PLA)** — لا عدّ تنازلي، التبديل ينتظرك:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
+
+**Keep current color** عند تغيّر الخامة يحذّر من الخامة التي سيُطبع بها ذلك الجزء:
+
+<table><tr>
+<td align="center"><img src="screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+</tr></table>
 
 - باقي الملف يُطبع باللون «الخطأ» حتى التبديل التالي. لا يضيع شيء آخر.
 - التبديل بين خيطين من نفس نوع الخامة فقط هو الذي يكمل وحده؛ الماكرو يقارن `MATERIAL` و`OLD_MATERIAL` من سطر السلايسر. بدون `OLD_MATERIAL` (سطر سلايسر قديم) لا يستطيع المقارنة فيكمل كما كان.
@@ -436,6 +484,15 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 
 **هي للتحكم بالطابعة عن بعد.** كل ما يحتاج شخصًا واقفًا أمام الطابعة — Unload، Load + purge، Purge، Re-home، أزرار المواد، Printer setup — **غير موجود** في المحادثة عمدًا.
 
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_6_keyboard.png" width="620" alt="Telegram"><br><sub>شريط المفاتيح (دائمًا في الأسفل)</sub></td>
+</tr></table>
+
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_2_panel_next_swap.png" width="360" alt="Telegram"><br><sub>لوحة التحكم أثناء الطباعة مع التبديل القادم (1.8)</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_1_print_start.png" width="360" alt="Telegram"><br><sub>رسالة بداية الطباعة (1.7) والتنبيه قبل التبديل بـ 10 دقائق (1.8)</sub></td>
+</tr></table>
+
 | في المحادثة | ما هو |
 |---|---|
 | **شريط المفاتيح** (دائمًا في الأسفل، مكان لوحة مفاتيح الهاتف) | **Status**، **Pause**، **Resume**، **Home / Away**، **Settings**، **Cancel print**، **STOP**. يبقى مكانه مهما كثرت الرسائل، فلا تحتاج للتمرير للوصول للتحكم. المفتاح يعمل فقط حين يكون له معنى (Pause لا يفعل شيئًا والطابعة متوقفة)، و Cancel print و STOP يسألان فقط، وجواب Yes / No على اللوحة |
@@ -452,6 +509,12 @@ Mainsail يعرض نفس نوافذ KlipperScreen تمامًا (يرسم نفس 
 | الخيط القديم ما زال في الفوهة (وضع AWAY، أو السحب التلقائي مطفأ) | **Keep the current color and continue**، **Wait for me - do not continue** (ما دام العدّ التنازلي يعمل؛ ولا يظهر عند تغيّر الخامة لأنه ينتظر أصلًا)، **Cancel print** |
 | الخيط القديم خرج (أو يُسحب الآن في HOME)، أو الجديد محمَّل وينتظر فحص اللون | **Cancel print** فقط — والبطاقة تقول إن أحدًا يجب أن يكون عند الطابعة، وإن AWAY يُضبط قبل التبديل |
 | نفاد الخيط | **Cancel print** فقط |
+
+<table><tr>
+<td align="center" valign="top"><img src="screenshots/telegram_3_swap_card_away.png" width="300" alt="Telegram"><br><sub>AWAY، يتغيّر اللون فقط: عدّ تنازلي</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_4_swap_card_material.png" width="300" alt="Telegram"><br><sub>AWAY، تتغيّر الخامة: ينتظرك</sub></td>
+<td align="center" valign="top"><img src="screenshots/telegram_5_keep_warning.png" width="300" alt="Telegram"><br><sub>Keep يسأل أولًا ويحذّر</sub></td>
+</tr></table>
 
 - Keep و Cancel print و Emergency stop تسأل مرة ثانية.
 - عند انتهاء التبديل تُغلق البطاقة وحدها وتقول كيف انتهى: أكملت بأي خيط، أو أُلغيت.
