@@ -4,7 +4,7 @@
 
 **One** print file from OrcaSlicer. Whenever the print needs another color, the printer pauses by itself, parks the head above the model and opens a window on the printer screen (KlipperScreen) and in Mainsail. You swap the filament, press a button, and the print goes on exactly where it stopped.
 
-Written and tested on a **FLSUN V400** (delta). Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
+By **Husham Mohammed Osman** ([@hushamQA](https://github.com/hushamQA)). Written and tested on a **FLSUN V400** (delta). Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
 <table><tr>
 <td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_04_swap_home_unloaded.png" width="330"><br><sub>KlipperScreen</sub></td>
@@ -45,4 +45,4 @@ Written and tested on a **FLSUN V400** (delta). Cartesian, CoreXY and bed-slinge
 The latest package and what changed in each version: **[Releases](https://github.com/hushamQA/klipper-color-swap/releases)**.
 Tutorial video (Arabic, version 2): [`video/`](https://github.com/hushamQA/klipper-color-swap/tree/main/video).
 
-MIT license — use and change it freely, with credit.
+MIT license — © 2026 Husham Mohammed Osman. Use and change it freely, with credit.
