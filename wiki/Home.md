@@ -1,5 +1,7 @@
 **English** | [العربية](%D8%A7%D9%84%D8%AF%D9%84%D9%8A%D9%84-%D8%A8%D8%A7%D9%84%D8%B9%D8%B1%D8%A8%D9%8A%D8%A9)
 
+<p align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/assets/banner.jpg" alt="COLOR_SWAP — multi-color printing on a single-extruder Klipper printer" width="100%"></p>
+
 # COLOR_SWAP — multi-color printing on a single-extruder Klipper printer
 
 **One** print file from OrcaSlicer. Whenever the print needs another color, the printer pauses by itself, parks the head above the model and opens a window on the printer screen (KlipperScreen) and in Mainsail. You swap the filament, press a button, and the print goes on exactly where it stopped.

@@ -1,5 +1,7 @@
 **English** | [العربية](README.ar.md)
 
+<p align="center"><img src="assets/banner.jpg" alt="COLOR_SWAP — multi-color printing on a single-extruder Klipper printer" width="100%"></p>
+
 # COLOR_SWAP — multi-color printing on a single-extruder Klipper printer
 
 **One** print file from OrcaSlicer. Whenever the print needs another color, the printer pauses by itself, parks the head above the model and opens a window on the printer screen (KlipperScreen) and in Mainsail. You swap the filament, press a button, and the print goes on exactly where it stopped.
