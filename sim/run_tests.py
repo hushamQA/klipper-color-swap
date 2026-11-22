@@ -78,8 +78,15 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     check(tag + "loaded: state 2, hold 2", cs(s)["state"] == 2 and cs(s)["hold"] == 2.0)
     check(tag + "purged counter", abs(cs(s)["purged"] - (58.155 + 8)) < 0.01, cs(s)["purged"])
     s.cmd("_CS_PURGE_MORE MM=30")
+    txt = " ".join(b for t, b in s.prompt() if t == "prompt_text")
+    check(tag + "v6.6 purge check: no cutting yet, Continue... refills 5 mm first", "5.0 mm of fresh plastic" in txt and "cut that strand in the next window" in txt, txt)
+    pg, n0, e0 = cs(s)["purged"], len(s.log), s.e
     s.cmd("_CS_CONFIRM")
     check(tag + "confirm view", cs(s)["view"] == "confirm")
+    txt = " ".join(b for t, b in s.prompt() if t == "prompt_text")
+    check(tag + "v6.6 Continue... pushes 5 mm fresh plastic (hold back in, then out again), counted as purged", abs(s.e - e0 - 5.0) < 1e-6 and abs(cs(s)["purged"] - pg - 5.0) < 1e-6, (s.e - e0, cs(s)["purged"] - pg))
+    check(tag + "v6.6 confirm window: cut THIS strand now, then Yes", "Cut this strand off at the nozzle" in txt and "The nozzle is full again" in txt, txt)
+    check(tag + "v6.6 refill runs behind a no-button window", any("Color swap - refilling" in l for l in s.log[n0:]))
     e_loaded = s.e
     s.cmd("_CS_CONTINUE")
     check(tag + "continued: printing, state 0", s.pstate == "printing" and cs(s)["state"] == 0 and not s.paused)
@@ -99,7 +106,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s.e = -2.0
     s.target = 215.0
     s.cmd("COLOR_SWAP SLOT=1 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2 PURGE=25")
-    check(tag + "back to main purge 25+15+60", abs(cs(s)["purge_total"] - 100) < 0.01 and cs(s)["to_main"] == 1, cs(s)["purge_total"])
+    check(tag + "back to main purge 25+15+20 (v6.6)", abs(cs(s)["purge_total"] - 60) < 0.01 and cs(s)["to_main"] == 1, cs(s)["purge_total"])
     s.cmd("_CS_CANCEL_MENU")
     s.cmd("_CS_CANCEL_PRINT UNLOAD=0")
     check(tag + "cancel: state 0, cancelled", cs(s)["state"] == 0 and s.pstate == "cancelled")
@@ -206,7 +213,7 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     check(tag + "resume: autosave does not see a new job", s2.vars["COLOR_SWAP"]["main_material"] == "PETG")
     s2.e = -2.0
     s2.cmd("COLOR_SWAP SLOT=1 MATERIAL=PETG OLD_MATERIAL=PLA TEMP=240 OLD_TEMP=215 RETRACT=2 PURGE=25")
-    check(tag + "resume: next swap back to main gets +60", abs(s2.vars["COLOR_SWAP"]["purge_total"] - 100) < 0.01, s2.vars["COLOR_SWAP"]["purge_total"])
+    check(tag + "resume: next swap back to main gets +20", abs(s2.vars["COLOR_SWAP"]["purge_total"] - 60) < 0.01, s2.vars["COLOR_SWAP"]["purge_total"])
 
     # ---------- 10a. the factory mode is AWAY, 5 min (version 6.3) ----------
     sd = start(kin, macros, home=False)
@@ -249,15 +256,15 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     # purge level
     s.cmd("_CS_PURGE_LEVEL")
     six = lambda: (c["purge_default"], c["purge_to_main_extra"], c["purge_material_change"], c["purge_btn1"], c["purge_btn2"], c["purge_btn3"])
-    check(tag + "settings: HIGH", cs(s)["purge_level"] == "high" and six() == (90, 110, 25, 25, 55, 110), six())
+    check(tag + "settings: HIGH", cs(s)["purge_level"] == "high" and six() == (90, 35, 25, 25, 55, 110), six())
     s.cmd("_CS_PURGE_LEVEL")
-    check(tag + "settings: LOW", cs(s)["purge_level"] == "low" and six() == (30, 35, 10, 10, 20, 35), six())
+    check(tag + "settings: LOW", cs(s)["purge_level"] == "low" and six() == (30, 10, 10, 10, 20, 35), six())
     s.cmd("_CS_SET_ADJ K=purge_btn2 D=5 G=5 P=0 E=1")
     check(tag + "settings: a hand change shows CUSTOM", cs(s)["purge_level"] == "custom")
     s.cmd("COLOR_SWAP_SETTINGS")
     check(tag + "settings: CUSTOM on the button", any("Purge amount: CUSTOM" in b for t, b in s.prompt()))
     s.cmd("_CS_PURGE_LEVEL")
-    check(tag + "settings: from CUSTOM back to NORMAL", cs(s)["purge_level"] == "normal" and six() == (50, 60, 15, 15, 30, 60), six())
+    check(tag + "settings: from CUSTOM back to NORMAL", cs(s)["purge_level"] == "normal" and six() == (50, 20, 15, 15, 30, 60), six())
     # lists
     s.cmd("COLOR_SWAP_SETTINGS V=adv")
     adv = [b for t, b in s.prompt() if t == "prompt_button"]
@@ -293,20 +300,20 @@ for kin, macros in (("delta", V400), ("cartesian", GEN), ("corexy", GEN)):
     s.cmd("_CS_SET_EDIT K=reprime_mm G=5 P=2")
     check(tag + "settings: edit window explains the number", any(t == "prompt_text" and "Raise to 2 or 3" in b and "This is the file default" in b for t, b in s.prompt()), s.prompt())
     s.cmd("_CS_SET_ADJ K=purge_to_main_extra D=5 G=5 P=0 E=1")
-    check(tag + "settings: changed value offers the file default", any("Back to the file default (60)" in b for t, b in s.prompt()), s.prompt())
+    check(tag + "settings: changed value offers the file default", any("Back to the file default (20)" in b for t, b in s.prompt()), s.prompt())
     s.cmd("_CS_SET_ADJ K=auto_unload T=1 G=3 P=0")
     check(tag + "settings: star on a changed line", any(b.startswith("* Pull old filament out (HOME only): OFF") for t, b in s.prompt()), s.prompt())
     s.cmd("COLOR_SWAP_SETTINGS V=adv")
     check(tag + "settings: group shows how many changed", any("Swap (1 changed)" in b for t, b in s.prompt()) and any("Purge details (1 changed)" in b for t, b in s.prompt()), s.prompt())
     s.cmd("_CS_SET_ADJ K=reprime_mm D=-0.5 G=5 P=2 E=1")
     s.cmd("_CS_SET_ADJ K=park_lift D=-1000 G=9 P=0 E=1")
-    check(tag + "settings: applied + clamped", c["purge_to_main_extra"] == 65 and c["auto_unload"] == 0 and c["reprime_mm"] == 1.0 and c["park_lift"] == 1, (c["purge_to_main_extra"], c["auto_unload"], c["reprime_mm"], c["park_lift"]))
+    check(tag + "settings: applied + clamped", c["purge_to_main_extra"] == 25 and c["auto_unload"] == 0 and c["reprime_mm"] == 1.0 and c["park_lift"] == 1, (c["purge_to_main_extra"], c["auto_unload"], c["reprime_mm"], c["park_lift"]))
     sv = s.saved.get("cs_set")
-    check(tag + "settings: saved", sv["purge_to_main_extra"] == 65 and sv["auto_unload"] == 0 and sv["reprime_mm"] == 1.0 and sv["park_lift"] == 1 and sv["away_min"] == 5, sv)
+    check(tag + "settings: saved", sv["purge_to_main_extra"] == 25 and sv["auto_unload"] == 0 and sv["reprime_mm"] == 1.0 and sv["park_lift"] == 1 and sv["away_min"] == 5, sv)
     s3 = Sim([macros, CS], kin=kin); s3.saved = dict(s.saved); s3.fire("_CS_BOOT")
-    check(tag + "settings: loaded after restart", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 65 and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 0 and s3.vars["COLOR_SWAP"]["purge_level"] == "custom")
+    check(tag + "settings: loaded after restart", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 25 and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 0 and s3.vars["COLOR_SWAP"]["purge_level"] == "custom")
     s3.cmd("_CS_SET_RESET"); s3.cmd("_CS_SET_RESET GO=1")
-    check(tag + "settings: reset all", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 60 and s3.saved["cs_set"] == {"auto_continue_min": 0} and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 1 and s3.vars["COLOR_SWAP"]["purge_level"] == "normal")
+    check(tag + "settings: reset all", s3.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 20 and s3.saved["cs_set"] == {"auto_continue_min": 0} and s3.vars["_COLOR_SWAP_CFG"]["auto_unload"] == 1 and s3.vars["COLOR_SWAP"]["purge_level"] == "normal")
     check(tag + "factory reset: asked first, button on the first window", any("Factory reset..." in b for t, b in s3.prompt()) and any("Factory reset done" in l for l in s3.log))
     s3.cmd("COLOR_SWAP_FACTORY_RESET")
     check(tag + "factory reset macro asks before doing it", any("Yes, factory reset" in b for t, b in s3.prompt()))
@@ -602,6 +609,26 @@ s.cmd("RESUME_SAVED_PRINT")
 check("[delta] a stop point alone is offered as the resume point", any("where it was cancelled" in b_ for t, b_ in s.prompt()), s.prompt())
 s.pstate = "printing"; s.cmd("START_PRINT BED_TEMP=80 EXTRUDER_TEMP=250 MESH=0")
 check("[delta] a new print forgets the stop point", s.saved.get("cs_stop") == 0)
+
+# ---------- v6.6: refill_mm 0 = the old flow ----------
+s = start("delta", V400)
+set_cfg(s, "refill_mm", 0)
+s.cmd(SWAP); s.filament = True; s.cmd("_CS_LOAD")
+txt = " ".join(b for t, b in s.prompt() if t == "prompt_text")
+e0 = s.e; s.cmd("_CS_CONFIRM")
+txt2 = " ".join(b for t, b in s.prompt() if t == "prompt_text")
+check("[delta] refill_mm 0: cut after the purge, Continue... pushes nothing, old question", "Cut the strand off at the nozzle" in txt and abs(s.e - e0) < 1e-9
+      and "strand cut off at the nozzle?" in txt2, (txt, s.e - e0, txt2))
+s.cmd("_CS_CONTINUE")
+check("[delta] refill_mm 0: continues as before", s.pstate == "printing" and cs(s)["state"] == 0)
+
+# ---------- v6.6: unloading is one pull with no stop ----------
+s = start("delta", V400); n0 = len(s.log); s.cmd(SWAP)
+seg = [l for l in s.log[n0:] if l != "M83"]
+i = next(k for k, l in enumerate(seg) if l.startswith("G1 E-13"))
+check("[delta] unload: quick pull and the rest follow with no G4 stop between them", seg[i + 1].startswith("G1 E-27") and not any(l.startswith("G4") for l in seg[i:i + 2]), seg[i:i + 3])
+s = start("delta", V400); set_cfg(s, "unload_dwell_ms", 2000); n0 = len(s.log); s.cmd(SWAP)
+check("[delta] unload_dwell_ms > 0 still stops in between", "G4 P2000" in s.log[n0:])
 
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))

@@ -322,7 +322,7 @@ tap(find(w, "Purge amount"), msg_id=win_id)
 check("tap Purge amount: printer runs it, the SAME message is edited to HIGH",
       wait(lambda: "_CS_PURGE_LEVEL" in MR["scripts"] and last_window()[0] == "editMessageText"
            and "Purge amount: HIGH" in [plain(x["text"]) for x in buttons(last_window()[1])] and last_window()[1]["message_id"] == win_id), last_window())
-check("the simulated printer really changed", sim.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 110)
+check("the simulated printer really changed", sim.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 35)
 old_btn = find(w, "Advanced")          # a button of the PREVIOUS render
 n = len(MR["scripts"])
 tap(old_btn, msg_id=win_id)
@@ -341,7 +341,7 @@ check("number window: explains itself, has + and - buttons", wait(lambda: "Raise
 m, w = last_window()
 check("rows are at most 3 wide and labels are intact", all(len(r) <= 3 for r in w["reply_markup"]["inline_keyboard"]))
 tap(find(w, "+ 5"), msg_id=win_id)
-check("+ 5 applied on the printer", wait(lambda: sim.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 115))
+check("+ 5 applied on the printer", wait(lambda: sim.vars["_COLOR_SWAP_CFG"]["purge_to_main_extra"] == 40))
 run_gcode("_CS_SET_RESET GO=1"); run_gcode("_CS_SET_CLOSE")
 check("Close on the printer: the message loses its buttons", wait(lambda: "Closed" in last_window()[1]["text"] and not buttons(last_window()[1]), 5))
 

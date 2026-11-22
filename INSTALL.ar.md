@@ -2,11 +2,12 @@
 
 # تثبيت ماكرو COLOR_SWAP — على أي طابعة Klipper
 
-الإصدار 6.5 — 2026-11-21 — كُتب على طابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2).
+الإصدار 6.6 — 2026-11-22 — كُتب على طابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2).
 طابعات الدلتا والكارتيزي و CoreXY والسرير المتحرك تستعمل نفس الملف `color_swap.cfg`.
 
-> **حالة الإصدار 6.5:** مثبّت على FLSUN V400 يوم 2026-11-21 (Klipper جاهز بلا تحذيرات)، وشُغّل في محاكي (402 فحصًا على دلتا وكارتيزي و CoreXY). لوحة Telegram 1.8: ‏114 فحصًا. طُبعت تبديلات ألوان حقيقية بالإصدار 6.4.
-> **الجديد في 6.5 لم يُشاهَد بعد في طباعة حقيقية:** التبديل الذي يغيّر نوع الخامة ينتظرك حتى في AWAY، واللوحة تنبّه قبل كل تبديل بـ 10 دقائق. راقب أول طباعة فيها تغيير خامة.
+> **حالة الإصدار 6.6:** مثبّت على FLSUN V400 يوم 2026-11-22 (Klipper جاهز بلا تحذيرات)، وشُغّل في محاكي (418 فحصًا على دلتا وكارتيزي و CoreXY). لوحة Telegram 1.8: ‏114 فحصًا. طُبعت تبديلات ألوان حقيقية بالإصدار 6.4.
+> **الجديد في 6.6 لم يُشاهَد بعد في طباعة حقيقية:** زر Continue... يدفع 5 مم بلاستيك جديد قبل أن تقطع الخيط (لا مسافة فارغة بعد التبديل)، والسحب عاد خطوة واحدة، وصخ الرجوع للفيلمنت الأساسي أقصر بـ 20 مم. راقب أول تبديل: اللون الجديد يجب أن يبدأ فورًا.
+> الدليل الكامل في [الويكي](https://github.com/hushamQA/klipper-color-swap/wiki) (وفي مجلد `wiki/` في هذه الحزمة). ملاحظات الإصدارات: [Releases](https://github.com/hushamQA/klipper-color-swap/releases).
 > ملفات هذه الحزمة مطابقة حرفيًا لما على الطابعة.
 
 ## المحتويات
@@ -20,14 +21,15 @@
 | `orca_before_layer_change_gcode.txt` | سطر OrcaSlicer لنقاط الحفظ (اختياري) |
 | `moonraker_notifier.txt` | رسائل الهاتف (Telegram)، يُلصق في آخر `moonraker.conf` |
 | 🆕 `telegram_bot.txt` | التحكم عن بعد من Telegram: خطوات التثبيت و`telegram.conf` وقائمة الأوامر |
-| `README.ar.md` / `README.md` | طريقة الاستعمال خطوة بخطوة (عربي / إنجليزي) |
+| `README.ar.md` / `README.md` | نظرة عامة وروابط (عربي / إنجليزي) |
+| 🆕 `wiki/` | الدليل الكامل صفحةً صفحة (عربي وإنجليزي) — نفس صفحات الويكي على الإنترنت |
 | `INSTALL.ar.md` / `INSTALL.md` | هذا الملف (عربي / إنجليزي) |
 | `test/` | نموذج تجربة: لوح + حرف T |
-| `telegram_panel/` | لوحة التحكم في Telegram (ملف Python واحد + `install.sh`)، انظر الجزء 6 في README |
+| `telegram_panel/` | لوحة التحكم في Telegram (ملف Python واحد + `install.sh`)، انظر صفحة لوحة Telegram في الويكي |
 | `klipperscreen_popup_fix.sh` | إصلاح اختياري في KlipperScreen: الرسائل المنبثقة لا تحجز اللمس |
 | `sim/` | اختبارات: `python sim/run_tests.py` (يحتاج `pip install jinja2`) |
-| `screenshots/` | لقطات جديدة لكل النوافذ: KlipperScreen و Mainsail و Telegram (مستعملة في README) |
-| `ROLLBACK_v6.4/` | 🆕 ملفات الإصدار 6.4 / اللوحة 1.5 (للرجوع) |
+| `screenshots/` | لقطات جديدة لكل النوافذ: KlipperScreen و Mainsail و Telegram (مستعملة في الويكي) |
+| `ROLLBACK_v6.5/` | 🆕 ملف `color_swap.cfg` من الإصدار 6.5 (للرجوع) |
 | `SHA256SUMS.txt` | بصمة كل ملف |
 
 ---
@@ -168,12 +170,12 @@ COLOR_SWAP_CHECK
 
 ---
 
-## الرجوع للإصدار 6.4 (FLSUN V400)
+## الرجوع للإصدار 6.5
 
-1. ارفع `ROLLBACK_v6.4/color_swap.cfg` مكان `color_swap.cfg` (و`ROLLBACK_v6.4/FLSUN_V400/macros.cfg` مكان `macros.cfg`؛ هو نفس الملف في 6.5).
+1. ارفع `ROLLBACK_v6.5/color_swap.cfg` مكان `color_swap.cfg`. ملف `macros.cfg` ولوحة Telegram ‏(1.8) لم يتغيّرا في 6.6.
 2. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
-3. لوحة Telegram: انسخ `ROLLBACK_v6.4/telegram_panel/cs_panel_bot.py` إلى `~/cs-telegram-panel/` ثم شغّل `systemctl --user restart cs-telegram-panel`.
-4. Orca لا يحتاج تغييرًا. الإصدار 6.5 لم يضف أي إعداد، فالإعدادات المحفوظة (`cs_set` في `variables.cfg`) تبقى كما هي.
+3. Orca لا يحتاج تغييرًا. الإعداد الجديد الوحيد في 6.6 (`refill_mm`) يتجاهله الإصدار 6.5.
+4. الإصدارات الأقدم: لكل إصدار في صفحة [Releases](https://github.com/hushamQA/klipper-color-swap/releases) حزمته الخاصة.
 
 ---
 

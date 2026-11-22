@@ -2,11 +2,12 @@
 
 # Installing the COLOR_SWAP macro — on any Klipper printer
 
-Version 6.5 — 2026-11-21 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
+Version 6.6 — 2026-11-22 — written on a FLSUN V400 (Klipper v0.13, Mainsail v2.19, KlipperScreen, OrcaSlicer 2.4.2).
 Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
-> **Status of version 6.5:** installed on the FLSUN V400 on 2026-11-21 (Klipper ready with no warnings), and run in a simulator (402 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.8: 114 checks. Color swaps have been printed with version 6.4.
-> **New in 6.5, not yet seen in a real print:** a swap that changes the material type waits for you in AWAY too, and the panel warns 10 min before each swap. Watch the first print that has a material change.
+> **Status of version 6.6:** installed on the FLSUN V400 on 2026-11-22 (Klipper ready with no warnings), and run in a simulator (418 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.8: 114 checks. Color swaps have been printed with version 6.4.
+> **New in 6.6, not yet seen in a real print:** Continue... pushes 5 mm of fresh plastic before you cut the strand (no more empty stretch after a swap), unloading is one pull again, and the purge back to the main filament is 20 mm shorter. Watch the first swap: the new color should start at once.
+> The full manual is the [wiki](https://github.com/hushamQA/klipper-color-swap/wiki) (also in the `wiki/` folder of this package). Release notes: [Releases](https://github.com/hushamQA/klipper-color-swap/releases).
 > The files in this package are byte-for-byte the ones on the printer.
 
 ## Contents
@@ -20,14 +21,15 @@ Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 | `orca_before_layer_change_gcode.txt` | OrcaSlicer line for save points (optional) |
 | `moonraker_notifier.txt` | Phone messages (Telegram), pasted at the end of `moonraker.conf` |
 | 🆕 `telegram_bot.txt` | Remote control from Telegram: install steps, `telegram.conf` and the command list |
-| `README.md` / `README.ar.md` | Step-by-step usage (English / Arabic) |
+| `README.md` / `README.ar.md` | Overview and links (English / Arabic) |
+| 🆕 `wiki/` | The full manual, page by page (English and Arabic) — the same pages as the online wiki |
 | `INSTALL.md` / `INSTALL.ar.md` | This file (English / Arabic) |
 | `test/` | Test model: a plate + the letter T |
-| `telegram_panel/` | The Telegram control panel (one Python file + `install.sh`), see README Part 6 |
+| `telegram_panel/` | The Telegram control panel (one Python file + `install.sh`), see the wiki page Telegram-Panel |
 | `klipperscreen_popup_fix.sh` | Optional KlipperScreen fix: message popups no longer hold the touches |
 | `sim/` | Tests: `python sim/run_tests.py` (needs `pip install jinja2`) |
-| `screenshots/` | New screenshots of every window: KlipperScreen, Mainsail and Telegram (used in README) |
-| `ROLLBACK_v6.4/` | 🆕 The files of version 6.4 / panel 1.5 (to go back) |
+| `screenshots/` | New screenshots of every window: KlipperScreen, Mainsail and Telegram (used in the wiki) |
+| `ROLLBACK_v6.5/` | 🆕 `color_swap.cfg` of version 6.5 (to go back) |
 | `SHA256SUMS.txt` | Checksum of every file |
 
 ---
@@ -168,12 +170,12 @@ Follow `telegram_bot.txt`, then switch on **Color swap settings → Alerts → T
 
 ---
 
-## Going back to version 6.4 (FLSUN V400)
+## Going back to version 6.5
 
-1. Upload `ROLLBACK_v6.4/color_swap.cfg` in place of `color_swap.cfg` (and `ROLLBACK_v6.4/FLSUN_V400/macros.cfg` in place of `macros.cfg`; it is the same file in 6.5).
+1. Upload `ROLLBACK_v6.5/color_swap.cfg` in place of `color_swap.cfg`. `macros.cfg` and the Telegram panel (1.8) are the same in 6.6.
 2. Make sure the printer is **not printing**, then press **Save & Restart**.
-3. Telegram panel: copy `ROLLBACK_v6.4/telegram_panel/cs_panel_bot.py` to `~/cs-telegram-panel/` and run `systemctl --user restart cs-telegram-panel`.
-4. Orca needs no change. 6.5 added no setting, so the saved settings (`cs_set` in `variables.cfg`) stay as they are.
+3. Orca needs no change. The one new setting of 6.6 (`refill_mm`) is simply ignored by 6.5.
+4. Older versions: every release on the [Releases](https://github.com/hushamQA/klipper-color-swap/releases) page has its own package.
 
 ---
 
