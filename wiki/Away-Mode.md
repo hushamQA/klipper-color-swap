@@ -14,22 +14,22 @@
 **Same material, only the color changes** — the window counts down:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 **6.5: the material changes (PETG → PLA)** — no countdown, the swap waits for you:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 **Keep current color** on a material change warns which material that part gets:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 - The rest of the file prints in the "wrong" color until the next swap. Nothing else is lost.

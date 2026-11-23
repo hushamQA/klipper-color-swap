@@ -6,8 +6,8 @@ Every change applies at once (no restart) and is kept in `variables.cfg`.
 ## The first window — what you change from print to print
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_07_settings.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (scroll for the rest)</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_07_settings.png" width="300" alt="Mainsail"><br><sub>Mainsail — the whole window</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_07_settings.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (scroll for the rest)</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_07_settings.png" width="300" alt="Mainsail"><br><sub>Mainsail — the whole window</sub></td>
 </tr></table>
 
 | Button | What it does |
@@ -58,8 +58,8 @@ Mainsail shows exactly the same windows as KlipperScreen (it draws the same prom
 ## Advanced
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_08_settings_advanced.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_08_settings_advanced.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_08_settings_advanced.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_08_settings_advanced.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 | Group | What is in it |

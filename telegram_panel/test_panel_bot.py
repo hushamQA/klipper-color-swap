@@ -48,8 +48,17 @@ class TGH(BaseHTTPRequestHandler):
         pass
 
     def do_POST(self):
-        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0))) or b"{}")
+        raw = self.rfile.read(int(self.headers.get("Content-Length", 0)))
         method = self.path.rsplit("/", 1)[1]
+        if (self.headers.get("Content-Type") or "").startswith("multipart/form-data"):
+            # sendPhoto (v1.9): keep the caption and whether a JPEG came with it
+            cap = re.search(rb'name="caption"\r\n\r\n(.*?)\r\n--', raw, re.S)
+            body = {"caption": cap.group(1).decode() if cap else "", "jpeg": b'filename="printer.jpg"' in raw and b"\xff\xd8" in raw,
+                    "silent": b'name="disable_notification"\r\n\r\ntrue' in raw, "chat_id": "777" if b"\r\n\r\n777\r\n" in raw else "?"}
+            fn = re.search(rb'filename="([^"]+)"', raw)
+            body["file"] = fn.group(1).decode() if fn else ""
+        else:
+            body = json.loads(raw or b"{}")
         res = True
         if method == "getUpdates":
             end = time.time() + 0.3
@@ -111,6 +120,30 @@ class MRH(BaseHTTPRequestHandler):
                 self.reply({"error": "no file"}, 404)
             else:
                 self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        elif u.path == "/server/webcams/list":
+            if MR.get("cams") is None:
+                self.reply({"error": "?"}, 404)
+            else:
+                self.reply({"result": {"webcams": MR["cams"]}})
+        elif u.path == "/machine/timelapse/settings":
+            if MR.get("tl") is None:
+                self.reply({"error": "?"}, 404)
+            else:
+                self.reply({"result": dict(MR["tl"])})
+        elif u.path == "/server/files/list" and parse_qs(u.query).get("root") == ["timelapse"]:
+            self.reply({"result": list(MR.get("tl_files", []))})
+        elif u.path.startswith("/server/files/timelapse/"):
+            data = MR.get("tl_data", {}).get(unquote(u.path[len("/server/files/timelapse/"):]))
+            if data is None:
+                self.reply({"error": "no file"}, 404)
+            else:
+                self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+        elif u.path == "/cam.jpg":
+            if MR.get("cam_up"):
+                data = b"\xff\xd8\xff\xe0fake-jpeg" + b"x" * 500
+                self.send_response(200); self.send_header("Content-Length", str(len(data))); self.end_headers(); self.wfile.write(data)
+            else:
+                self.reply({"error": "no camera"}, 503)
         elif u.path == "/server/files/metadata":
             fn = unquote(parse_qs(u.query)["filename"][0])
             if fn in MR["meta"]:
@@ -133,6 +166,11 @@ class MRH(BaseHTTPRequestHandler):
                 self.reply({"error": {"code": 400, "message": err}}, 400)
             else:
                 self.reply({"result": "ok"})
+        elif u.path == "/machine/timelapse/settings" and MR.get("tl") is not None:
+            q = parse_qs(u.query)
+            if "enabled" in q:
+                MR["tl"]["enabled"] = q["enabled"][0] == "true"
+            self.reply({"result": dict(MR["tl"])})
         elif u.path == "/printer/firmware_restart":
             MR["restart"] += 1
             self.reply({"result": "ok"})
@@ -358,8 +396,9 @@ check("mode change opened no window", not any("Color swap settings" in b.get("te
 # ---------------------------------------------------------------- a swap while AWAY: the remote card
 sim.pstate, sim.target, sim.pos, sim.e = "printing", 240.0, [30.0, 20.0, 3.2], -2.0
 text_msg("Panel")
-wait(lambda: "State: <b>printing</b>" in last("sendMessage")["text"])
-p = last("sendMessage")
+# the panel itself (the "Print started" message may arrive at the same moment)
+wait(lambda: any(m == "sendMessage" and "State: <b>printing</b>" in b["text"] for m, b in TG["calls"]))
+p = [b for m, b in TG["calls"] if m == "sendMessage" and "State: <b>printing</b>" in b["text"]][-1]
 check("panel printing: file, progress, Pause and Cancel", "Done: <b>34%</b>" in p["text"] and "test.gcode" in p["text"]
       and {"Pause", "Cancel print"} <= set(plain(x["text"]) for x in buttons(p)), p["text"])
 before = TG["next_id"]
@@ -473,8 +512,8 @@ hello = [b for m, b in TG["calls"] if m == "sendMessage" and "keyboard" in (b.ge
 keys = [k["text"] for row in hello["reply_markup"]["keyboard"] for k in row]
 raw_keys = keys
 keys = [plain(k) for k in raw_keys]
-check("key bar: Status, Pause, Resume, Home / Away, Settings, Cancel print, STOP - persistent",
-      keys == ["Status", "Pause", "Resume", "Home / Away", "Settings", "Cancel print", "STOP"] and hello["reply_markup"].get("is_persistent"), keys)
+check("key bar: Status, Pause, Resume, Home / Away, Photo, Settings, Cancel print, STOP - persistent",
+      keys == ["Status", "Pause", "Resume", "Home / Away", "Photo", "Settings", "Cancel print", "STOP"] and hello["reply_markup"].get("is_persistent"), keys)
 check("every key is understood by the bot (with its emoji, and typed without)", all(B.key_of(k) in B.KEYS for k in raw_keys) and all(B.key_of(k) in B.KEYS for k in keys))
 sim.pstate, sim.target, sim.paused = "cancelled", 0.0, False
 n, ns = len(TG["calls"]), len(MR["scripts"])
@@ -656,7 +695,7 @@ n = len(TG["calls"])
 sim.pstate, sim.target = "printing", 240.0
 check("the pinned panel updates by itself when the printer changes",
       wait(lambda: any(m == "editMessageText" and b["message_id"] == pinned and "State: <b>printing</b>" in b["text"] for m, b in TG["calls"][n:]), 5)
-      and not any(m == "sendMessage" for m, b in TG["calls"][n:]), TG["calls"][n:])
+      and not any(m == "sendMessage" and "Print started" not in b["text"] for m, b in TG["calls"][n:]), TG["calls"][n:])
 time.sleep(1.2)
 n = len(TG["calls"])
 time.sleep(1.2)
@@ -726,6 +765,214 @@ stp["virtual_sdcard"]["file_position"] = p10
 bot.watch_plan(stp); time.sleep(0.3)
 check("warn_min 0: no warning", not any(m == "sendMessage" for m, b in TG["calls"][n:]))
 check("warn_min is read from the config file", B.load_config(os.path.join(HERE, "cs_telegram.conf"), "/nonexistent")["warn_min"] == 10)
+
+# ---------------------------------------------------------------- v1.9: the camera
+def photos(since):
+    with LOCK:
+        return [b for m, b in TG["calls"][since:] if m == "sendPhoto"]
+
+
+def panel_labels():
+    return [plain(x["text"]) for x in buttons({"reply_markup": bot.panel()[1]})]
+
+
+# the bots above were stopped: a fresh one for these tests
+sim.pstate, sim.target = "standby", 0.0
+with LOCK:
+    TG["updates"].clear()
+bot = B.Bot(dict(cfg, state=os.path.join(d, "state_cam.json")))
+bot.start()
+wait(lambda: bot.panel_msg is not None, 5); time.sleep(0.5)
+bot.cam_checked = 0
+check("camera: no webcam in Moonraker = no camera, no Photo button", bot.cam_url() == "" and not bot.cam_ok() and "Photo" not in panel_labels(), panel_labels())
+check("camera: the key bar has the Photo key (camera: auto)", any(k["text"] == "📷 Photo" for r in bot.keyboard()["keyboard"] for k in r))
+MR["cams"] = [{"name": "off", "enabled": False, "snapshot_url": "http://nowhere/x.jpg"},
+              {"name": "v400", "enabled": True, "snapshot_url": cfg["moonraker"] + "/cam.jpg"}]
+MR["cam_up"] = True
+bot.cam_found, bot.cam_checked = None, 0
+check("camera: found through Moonraker's webcams (the first enabled one)", bot.cam_url() == cfg["moonraker"] + "/cam.jpg" and bot.cam_ok(), bot.cam_url())
+b2 = B.Bot(dict(cfg))
+MR["cams"] = [{"name": "v400", "enabled": True, "snapshot_url": "/webcam/?action=snapshot"}]
+check("camera: a path behind nginx becomes a local address", b2.cam_url() == "http://127.0.0.1/webcam/?action=snapshot", b2.cam_url())
+MR["cams"] = [{"name": "v400", "enabled": True, "snapshot_url": cfg["moonraker"] + "/cam.jpg"}]
+check("camera: a snapshot URL in the config wins", B.Bot(dict(cfg, camera="http://cam.example/snap.jpg")).cam_url() == "http://cam.example/snap.jpg")
+open(os.path.join(d, "cam.conf"), "w").write("[bot]\ntoken: 1:A\nchat_id: 7\ncamera: http://x:8080/?action=snapshot&q=50%\n")
+check("camera: read from cs_telegram.conf (a % in the URL is fine)", B.load_config(os.path.join(d, "cam.conf"), "/nonexistent")["camera"] == "http://x:8080/?action=snapshot&q=50%")
+check("camera: the template says auto", B.load_config(os.path.join(HERE, "cs_telegram.conf"), "/nonexistent")["camera"] == "auto")
+check("panel: Photo next to Refresh", panel_labels()[:2] == ["Refresh", "Photo"], panel_labels())
+
+n = len(TG["calls"])
+tap("m:photo", msg_id=bot.panel_msg)
+check("Photo button: one picture, quietly, to the chat, with the printer name", wait(lambda: len(photos(n)) == 1) and photos(n)[0]["jpeg"]
+      and photos(n)[0]["silent"] and photos(n)[0]["chat_id"] == "777" and "FLSUN V400" in photos(n)[0]["caption"], photos(n))
+check("Photo button: the tap is answered 'Photo sent'", wait(lambda: any(m == "answerCallbackQuery" and b.get("text") == "Photo sent" for m, b in TG["calls"][n:])))
+n = len(TG["calls"])
+text_msg("📷 Photo")
+check("Photo key: a picture, then the panel at the bottom", wait(lambda: len(photos(n)) == 1 and any(m == "pinChatMessage" for m, b in TG["calls"][n:])), TG["calls"][n:])
+check("Photo key: nothing was sent to the printer", not [x for x in MR["scripts"] if "PHOTO" in x.upper()])
+
+MR["cam_up"] = False
+n = len(TG["calls"])
+text_msg("📷 Photo")
+check("camera unplugged: the key says the camera does not answer", wait(lambda: any(m == "sendMessage" and "camera does not answer" in b["text"] for m, b in TG["calls"][n:])), TG["calls"][n:])
+check("camera unplugged: no Photo button any more", "Photo" not in panel_labels(), panel_labels())
+MR["cam_up"] = True; bot.cam_checked = 0
+check("camera back: the Photo button is back", "Photo" in panel_labels())
+
+# pictures by themselves, driven by a made-up printer status
+ST = {"print_stats": {"state": "printing", "filename": "cam.gcode"}, "webhooks": {"state": "ready"}, "extruder": {}, "heater_bed": {},
+      "gcode_macro COLOR_SWAP": {"state": 0}, "gcode_macro _COLOR_SWAP_CFG": {"auto_continue_min": 0, "notify": 1, "tg_panel": 1}}
+real_status = bot.status
+bot.status = lambda: json.loads(json.dumps(ST))
+time.sleep(0.8)
+n = len(TG["calls"])
+ST["gcode_macro COLOR_SWAP"] = {"state": 1, "slot": 3, "material": "PLA", "unloaded": 1}
+check("swap starts: one picture of the printer", wait(lambda: len(photos(n)) == 1 and "color swap to filament 3 PLA" in photos(n)[0]["caption"]), photos(n))
+with LOCK:
+    kinds = [(m, b) for m, b in TG["calls"][n:] if m in ("sendMessage", "sendPhoto")]
+check("swap starts: the card comes first, the picture right under it", len(kinds) >= 2 and kinds[0][0] == "sendMessage"
+      and "Color swap to filament 3 PLA" in kinds[0][1]["text"] and kinds[1][0] == "sendPhoto", [m for m, b in kinds])
+time.sleep(0.8)
+check("the same moment of the swap: no second picture", len(photos(n)) == 1, photos(n))
+check("swap card: Photo next to Cancel and Refresh", wait(lambda: [plain(x["text"]) for x in buttons(last_card()[1])] == ["Cancel print", "Refresh", "Photo"]),
+      [plain(x["text"]) for x in buttons(last_card()[1])])
+n2 = len(TG["calls"])
+tap("s:photo", msg_id=bot.swap_msg)
+check("swap card Photo: a picture", wait(lambda: len(photos(n2)) == 1))
+ST["gcode_macro COLOR_SWAP"] = {"state": 2, "slot": 3, "material": "PLA", "unloaded": 0}
+check("purge ready: a picture to check the color", wait(lambda: any("is the color right?" in p["caption"] for p in photos(n)), 8), photos(n))
+ST["gcode_macro COLOR_SWAP"] = {"state": 0}
+time.sleep(0.8)
+ST["gcode_macro COLOR_SWAP"] = {"state": 1, "runout": 1, "unloaded": 1}
+check("runout: a picture", wait(lambda: any("filament ran out" in p["caption"] for p in photos(n)), 8), photos(n))
+ST["gcode_macro COLOR_SWAP"] = {"state": 0}
+ST["gcode_macro _COLOR_SWAP_CFG"]["notify"] = 0
+time.sleep(0.8)
+n = len(TG["calls"])
+ST["gcode_macro COLOR_SWAP"] = {"state": 1, "slot": 2, "material": "PETG", "unloaded": 1}
+time.sleep(1.2)
+check("notify off (COLOR_SWAP setting): no picture by itself", not photos(n), photos(n))
+ST["gcode_macro COLOR_SWAP"] = {"state": 0}
+ST["gcode_macro _COLOR_SWAP_CFG"]["notify"] = 1
+time.sleep(0.8)
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "complete", "filename": "cam.gcode"}
+check("print complete: one picture with the file name", wait(lambda: len(photos(n)) == 1 and "Print complete" in photos(n)[0]["caption"]
+      and "cam.gcode" in photos(n)[0]["caption"]), photos(n))
+time.sleep(0.8)
+check("print complete: only once", len(photos(n)) == 1, photos(n))
+ST["print_stats"] = {"state": "printing", "filename": "cam.gcode"}; time.sleep(0.8)
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "cancelled", "filename": "cam.gcode"}
+check("print cancelled: a picture", wait(lambda: len(photos(n)) == 1 and "Print cancelled" in photos(n)[0]["caption"]), photos(n))
+ST["print_stats"] = {"state": "printing", "filename": "cam.gcode"}; time.sleep(0.8)
+MR["cam_up"] = False
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "error", "filename": "cam.gcode"}
+time.sleep(1.2)
+check("camera unplugged at the end of a print: no picture, nothing else breaks", not photos(n) and bot.last_ps == "error")
+MR["cam_up"] = True
+bot.status = real_status
+
+# ---------------------------------------------------------------- v1.9: video and timelapse
+def videos(since):
+    with LOCK:
+        return [b for m, b in TG["calls"][since:] if m == "sendVideo"]
+
+
+def answered(since, start):
+    with LOCK:
+        return any(m == "answerCallbackQuery" and (b.get("text") or "").startswith(start) for m, b in TG["calls"][since:])
+
+
+MR["cams"] = [{"name": "v400", "enabled": True, "snapshot_url": cfg["moonraker"] + "/cam.jpg?action=snapshot"}]
+MR["cam_up"] = True
+bot.cam_found, bot.cam_checked, bot.tl_at = None, 0, 0
+check("no timelapse installed: no timelapse line, no timelapse buttons", "Timelapse" not in bot.panel()[0] and not [x for x in panel_labels() if "imelapse" in x])
+check("the stream address comes from the snapshot address", bot.stream_url() == cfg["moonraker"] + "/cam.jpg?action=stream", bot.stream_url())
+real_which = B.shutil.which
+B.shutil.which = lambda name: "/usr/bin/ffmpeg"
+bot.make_clip = lambda secs: b"\x00\x00\x00\x18ftypmp42" + b"v" * 2000
+check("panel: Video next to Photo when the printer has ffmpeg", panel_labels()[:3] == ["Refresh", "Photo", "Video"], panel_labels())
+n = len(TG["calls"])
+tap("m:video", msg_id=bot.panel_msg)
+check("Video button: one short video, quietly, streamable", wait(lambda: len(videos(n)) == 1) and videos(n)[0]["file"] == "printer.mp4"
+      and videos(n)[0]["silent"] and "10 s live" in videos(n)[0]["caption"], videos(n))
+check("Video button: the tap says it is recording", answered(n, "Recording 10 s"))
+bot.make_clip = lambda secs: None
+n = len(TG["calls"])
+tap("m:video", msg_id=bot.panel_msg)
+check("no video from the camera: the chat is told", wait(lambda: any(m == "sendMessage" and "No video" in b["text"] for m, b in TG["calls"][n:])) and not videos(n))
+B.shutil.which = lambda name: None
+check("no ffmpeg on the printer: no Video button", "Video" not in panel_labels(), panel_labels())
+B.shutil.which = lambda name: "/usr/bin/ffmpeg"
+
+MR["tl"] = {"enabled": False, "autorender": True, "mode": "hyperlapse"}
+MR["tl_files"] = []
+bot.tl_at = 0
+check("timelapse installed, OFF, no video yet: the line says OFF, no Last timelapse", "Timelapse: <b>OFF" in bot.panel()[0]
+      and "Timelapse: OFF" in panel_labels() and "Last timelapse" not in panel_labels(), panel_labels())
+n = len(TG["calls"])
+tap("m:tl", msg_id=bot.panel_msg)
+check("Timelapse button: switched ON in Moonraker, the tap says so", wait(lambda: MR["tl"]["enabled"] is True and answered(n, "Timelapse ON")))
+check("the panel now says ON", "Timelapse: ON" in panel_labels() and "Timelapse: <b>ON" in bot.panel()[0], panel_labels())
+check("no camera = no timelapse buttons either", True)
+
+real_status = bot.status
+ST = {"print_stats": {"state": "printing", "filename": "tl.gcode"}, "webhooks": {"state": "ready"}, "extruder": {}, "heater_bed": {},
+      "gcode_macro COLOR_SWAP": {"state": 0}, "gcode_macro _COLOR_SWAP_CFG": {"auto_continue_min": 0, "notify": 1, "tg_panel": 1}}
+bot.status = lambda: json.loads(json.dumps(ST))
+bot.cfg["tl_poll"] = 0.2
+time.sleep(0.8)
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "complete", "filename": "tl.gcode"}
+time.sleep(0.8)
+check("print complete, video not made yet: no video yet", not videos(n), videos(n))
+vid = b"\x00\x00\x00\x18ftypmp42" + b"t" * 3000
+MR["tl_data"] = {"timelapse_tl_20261123_0900.mp4": vid, "old.mp4": b"\x00\x00\x00\x18ftypmp42old"}
+MR["tl_files"] = [{"path": "old.mp4", "modified": time.time() - 3600, "size": 14},
+                  {"path": "timelapse_tl_20261123_0900.mp4", "modified": time.time(), "size": len(vid)}]
+check("the timelapse of this print is sent when Moonraker has made it", wait(lambda: len(videos(n)) == 1, 6)
+      and videos(n)[0]["file"] == "timelapse_tl_20261123_0900.mp4" and "Timelapse of this print" in videos(n)[0]["caption"], videos(n))
+time.sleep(1.0)
+check("the timelapse is sent once", len(videos(n)) == 1, videos(n))
+bot.tl_at = 0
+check("a video exists: Last timelapse next to the switch", "Last timelapse" in panel_labels(), panel_labels())
+n = len(TG["calls"])
+tap("m:tl_last", msg_id=bot.panel_msg)
+check("Last timelapse: the newest video", wait(lambda: len(videos(n)) == 1) and videos(n)[0]["file"] == "timelapse_tl_20261123_0900.mp4"
+      and "Last timelapse" in videos(n)[0]["caption"], videos(n))
+MR["tl_files"].append({"path": "huge.mp4", "modified": time.time() + 5, "size": 60 * 1024 * 1024})
+n = len(TG["calls"])
+tap("m:tl_last", msg_id=bot.panel_msg)
+check("a video over 50 MB: the chat is told to use Mainsail", wait(lambda: any(m == "sendMessage" and "too big for Telegram" in b["text"] for m, b in TG["calls"][n:])) and not videos(n))
+MR["tl_files"].pop()
+ST["print_stats"] = {"state": "printing", "filename": "tl.gcode"}; time.sleep(0.8)
+MR["tl"]["enabled"] = False; bot.tl_at = 0
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "complete", "filename": "tl.gcode"}
+MR["tl_files"].append({"path": "timelapse_tl_second.mp4", "modified": time.time() + 1, "size": 20})
+MR["tl_data"]["timelapse_tl_second.mp4"] = b"\x00\x00\x00\x18ftypmp42" + b"s" * 9
+time.sleep(1.5)
+check("timelapse OFF: no video is waited for or sent", not videos(n), videos(n))
+ST["print_stats"] = {"state": "printing", "filename": "tl.gcode"}; time.sleep(0.8)
+MR["tl"]["enabled"] = True; bot.tl_at = 0; bot.cfg["timelapse_video"] = "off"
+n = len(TG["calls"])
+ST["print_stats"] = {"state": "complete", "filename": "tl.gcode"}
+time.sleep(1.5)
+check("timelapse_video: off in the config: no video sent", not videos(n), videos(n))
+bot.cfg["timelapse_video"] = "on"
+bot.status = real_status
+B.shutil.which = real_which
+open(os.path.join(d, "tl.conf"), "w").write("[bot]\ntoken: 1:A\nchat_id: 7\ntimelapse_video: off\n")
+check("timelapse_video is read from cs_telegram.conf", B.load_config(os.path.join(d, "tl.conf"), "/nonexistent")["timelapse_video"] == "off")
+
+bot.cfg["camera"] = "off"
+bot.cam_checked = 0
+check("camera: off = no camera, no Photo button, no Photo key", bot.cam_url() == "" and "Photo" not in panel_labels()
+      and not any(k["text"] == "📷 Photo" for r in bot.keyboard()["keyboard"] for k in r) and bot.kb_id() != B.KEYBOARD_VER * 10 + 1)
+check("camera: the other keys stay when the camera is off", [k["text"] for r in bot.keyboard()["keyboard"] for k in r].count("⚙️ Settings") == 1)
+bot.cfg["camera"] = "auto"
 
 bad = [r for r in results if not r[1]]
 print("\n%d checks, %d failed" % (len(results), len(bad)))

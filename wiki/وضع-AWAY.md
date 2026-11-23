@@ -16,22 +16,22 @@
 **نفس الخامة، يتغيّر اللون فقط** — النافذة تعدّ تنازليًا:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_01_swap_away_color.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_01_swap_away_color.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 **6.5: الخامة تتغيّر (PETG ← PLA)** — لا عدّ تنازلي، التبديل ينتظرك:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_02_swap_away_material.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_02_swap_away_material.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 **Keep current color** عند تغيّر الخامة يحذّر من الخامة التي سيُطبع بها ذلك الجزء:
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_03_keep_warning.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_03_keep_warning.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 - باقي الملف يُطبع باللون «الخطأ» حتى التبديل التالي. لا يضيع شيء آخر.

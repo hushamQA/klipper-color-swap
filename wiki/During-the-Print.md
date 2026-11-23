@@ -5,8 +5,8 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 ## Window 1: "Color swap - load filament 2"
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_04_swap_home_unloaded.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (HOME: the old filament is already out)</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_04_swap_home_unloaded.png" width="300" alt="Mainsail"><br><sub>Mainsail — the same window</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_04_swap_home_unloaded.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen (HOME: the old filament is already out)</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_04_swap_home_unloaded.png" width="300" alt="Mainsail"><br><sub>Mainsail — the same window</sub></td>
 </tr></table>
 
 1. Pull out the old filament.
@@ -24,8 +24,8 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 > While loading and purging, a window **with no buttons** appears ("please wait"). Wait until it closes.
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_05_purge_check.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_05_purge_check.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_05_purge_check.png" width="460" alt="KlipperScreen"><br><sub>KlipperScreen</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_05_purge_check.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 4. Look at the filament coming out: is the color mixed? Press **Purge +15**, **+30** or **+60** (or the **Purge +30mm** button at the bottom right).
@@ -44,8 +44,8 @@ The printer lifts the head **up first**, then moves to the front edge and unload
 | The question | Back | — | **Yes, continue print** |
 
 <table><tr>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_06_confirm.png" width="460" alt="KlipperScreen"><br><sub>The question after Continue... (KlipperScreen)</sub></td>
-<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_06_confirm.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_06_confirm.png" width="460" alt="KlipperScreen"><br><sub>The question after Continue... (KlipperScreen)</sub></td>
+<td align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_06_confirm.png" width="300" alt="Mainsail"><br><sub>Mainsail</sub></td>
 </tr></table>
 
 Two taps in a row on the same spot never continue the print.

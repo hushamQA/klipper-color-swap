@@ -1,13 +1,13 @@
 **العربية** | [English](INSTALL.md)
 
-# تثبيت ماكرو COLOR_SWAP — على أي طابعة Klipper
+# تثبيت SwapPilot (ماكرو COLOR_SWAP) — على أي طابعة Klipper
 
 الإصدار 6.6 — 2026-11-22 — كُتب على طابعة FLSUN V400 (Klipper v0.13، Mainsail v2.19، KlipperScreen، OrcaSlicer 2.4.2).
 طابعات الدلتا والكارتيزي و CoreXY والسرير المتحرك تستعمل نفس الملف `color_swap.cfg`.
 
 > **حالة الإصدار 6.6:** مثبّت على FLSUN V400 يوم 2026-11-22 (Klipper جاهز بلا تحذيرات)، وشُغّل في محاكي (418 فحصًا على دلتا وكارتيزي و CoreXY). لوحة Telegram 1.8: ‏114 فحصًا. طُبعت تبديلات ألوان حقيقية بالإصدار 6.4.
 > **الجديد في 6.6 لم يُشاهَد بعد في طباعة حقيقية:** زر Continue... يدفع 5 مم بلاستيك جديد قبل أن تقطع الخيط (لا مسافة فارغة بعد التبديل)، والسحب عاد خطوة واحدة، وصخ الرجوع للفيلمنت الأساسي أقصر بـ 20 مم. راقب أول تبديل: اللون الجديد يجب أن يبدأ فورًا.
-> الدليل الكامل في [الويكي](https://github.com/hushamQA/klipper-color-swap/wiki) (وفي مجلد `wiki/` في هذه الحزمة). ملاحظات الإصدارات: [Releases](https://github.com/hushamQA/klipper-color-swap/releases).
+> الدليل الكامل في [الويكي](https://github.com/hushamQA/klipper-swappilot/wiki) (وفي مجلد `wiki/` في هذه الحزمة). ملاحظات الإصدارات: [Releases](https://github.com/hushamQA/klipper-swappilot/releases).
 > ملفات هذه الحزمة مطابقة حرفيًا لما على الطابعة.
 
 ## المحتويات
@@ -175,7 +175,7 @@ COLOR_SWAP_CHECK
 1. ارفع `ROLLBACK_v6.5/color_swap.cfg` مكان `color_swap.cfg`. ملف `macros.cfg` ولوحة Telegram ‏(1.8) لم يتغيّرا في 6.6.
 2. تأكد أن الطابعة **لا تطبع**، ثم اضغط **Save & Restart**.
 3. Orca لا يحتاج تغييرًا. الإعداد الجديد الوحيد في 6.6 (`refill_mm`) يتجاهله الإصدار 6.5.
-4. الإصدارات الأقدم: لكل إصدار في صفحة [Releases](https://github.com/hushamQA/klipper-color-swap/releases) حزمته الخاصة.
+4. الإصدارات الأقدم: لكل إصدار في صفحة [Releases](https://github.com/hushamQA/klipper-swappilot/releases) حزمته الخاصة.
 
 ---
 

@@ -32,6 +32,6 @@
 
 ---
 
-📦 [Releases](https://github.com/hushamQA/klipper-color-swap/releases)
+📦 [Releases](https://github.com/hushamQA/klipper-swappilot/releases)
 
-💻 [Code](https://github.com/hushamQA/klipper-color-swap)
+💻 [Code](https://github.com/hushamQA/klipper-swappilot)

@@ -1,17 +1,19 @@
 **English** | [العربية](%D8%A7%D9%84%D8%AF%D9%84%D9%8A%D9%84-%D8%A8%D8%A7%D9%84%D8%B9%D8%B1%D8%A8%D9%8A%D8%A9)
 
-<p align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/assets/banner.jpg" alt="COLOR_SWAP — multi-color printing on a single-extruder Klipper printer" width="100%"></p>
+<p align="center"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/assets/banner.jpg" alt="SwapPilot — multi-color printing on a single-extruder Klipper printer" width="100%"></p>
 
-# COLOR_SWAP — multi-color printing on a single-extruder Klipper printer
+# SwapPilot — multi-color printing on a single-extruder Klipper printer
+
+> **SwapPilot** is the new name of **COLOR_SWAP** (November 2026). The macros keep their names (`COLOR_SWAP`, `COLOR_SWAP_CHECK`, `COLOR_SWAP_SETTINGS`...), so nothing changes in OrcaSlicer or on the printer. Old links to `klipper-color-swap` lead here by themselves.
 
 **One** print file from OrcaSlicer. Whenever the print needs another color, the printer pauses by itself, parks the head above the model and opens a window on the printer screen (KlipperScreen) and in Mainsail. You swap the filament, press a button, and the print goes on exactly where it stopped.
 
 By **Husham Mohammed Osman** ([@hushamQA](https://github.com/hushamQA)). Written and tested on a **FLSUN V400** (delta). Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
 <table><tr>
-<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/klipperscreen_04_swap_home_unloaded.png" width="330"><br><sub>KlipperScreen</sub></td>
-<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/mainsail_05_purge_check.png" width="200"><br><sub>Mainsail</sub></td>
-<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-color-swap/main/screenshots/telegram_3_swap_card_away.png" width="220"><br><sub>Telegram</sub></td>
+<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/klipperscreen_04_swap_home_unloaded.png" width="330"><br><sub>KlipperScreen</sub></td>
+<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/mainsail_05_purge_check.png" width="200"><br><sub>Mainsail</sub></td>
+<td align="center" valign="top"><img src="https://raw.githubusercontent.com/hushamQA/klipper-swappilot/main/screenshots/telegram_3_swap_card_away.png" width="220"><br><sub>Telegram</sub></td>
 </tr></table>
 
 ## What it does
@@ -22,6 +24,7 @@ By **Husham Mohammed Osman** ([@hushamQA](https://github.com/hushamQA)). Written
 | 🧪 **Right purge every time** | Takes Orca's flushing volume, adds extra for a material change and for going back to the main filament, purges in pulses |
 | ✈️ **HOME / AWAY** | AWAY: nobody at the printer? After 5 min the print goes on with the color it has. A change of material always waits for a person |
 | 📱 **Telegram control panel** | One pinned, self-updating panel, the swap card, a warning 10 min before each swap — buttons only |
+| 📷 **Camera in the chat** | A photo at every swap step (check the purge color from far away), 10 s live videos, and the timelapse of each complete print sent to Telegram |
 | ⚡ **Power-cut resume** | Save points every layer; resume a stopped print from the screen |
 | 🛡️ **Safe by design** | The nozzle never goes below the point where the slicer paused it |
 | ⚙️ **Settings on the screen** | Every number has a button, an explanation and a factory value — no file editing |
@@ -44,7 +47,7 @@ By **Husham Mohammed Osman** ([@hushamQA](https://github.com/hushamQA)). Written
 
 ## Download
 
-The latest package and what changed in each version: **[Releases](https://github.com/hushamQA/klipper-color-swap/releases)**.
-Tutorial video (Arabic, version 2): [`video/`](https://github.com/hushamQA/klipper-color-swap/tree/main/video).
+The latest package and what changed in each version: **[Releases](https://github.com/hushamQA/klipper-swappilot/releases)**.
+Tutorial video (Arabic, version 2): [`video/`](https://github.com/hushamQA/klipper-swappilot/tree/main/video).
 
 MIT license — © 2026 Husham Mohammed Osman. Use and change it freely, with credit.

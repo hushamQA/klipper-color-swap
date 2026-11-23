@@ -1,1 +1,1 @@
-COLOR_SWAP **6.6** by Husham Mohammed Osman (هشام محمد عثمان) · [Releases](https://github.com/hushamQA/klipper-color-swap/releases) · [Report a problem](https://github.com/hushamQA/klipper-color-swap/issues) · MIT license
+SwapPilot **6.6.1** (Telegram panel 1.9) by Husham Mohammed Osman (هشام محمد عثمان) · [Releases](https://github.com/hushamQA/klipper-swappilot/releases) · [Report a problem](https://github.com/hushamQA/klipper-swappilot/issues) · MIT license

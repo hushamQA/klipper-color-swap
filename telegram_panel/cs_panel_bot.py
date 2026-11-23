@@ -21,6 +21,13 @@ Runs on the printer next to Moonraker. Python 3.7+, standard library only.
     button to change it - AWAY only helps if it is set BEFORE a swap starts.
   * A button is only offered while it can still do something (HOME / AWAY is not offered
     for a swap whose old filament is already out).
+  * Camera (v1.9): with a camera on the printer (the first Moonraker webcam, or camera:
+    in cs_telegram.conf) a 📷 Photo key and button send a picture of the printer, and a
+    picture follows by itself when a swap starts, when the purge is ready to be checked
+    (is the color right?), on a runout and when a print ends. No camera = no button.
+    🎥 Video records a few seconds of the live camera (ffmpeg on the printer) and sends it.
+    With moonraker-timelapse: 🎬 Timelapse ON / OFF on the panel, the video of a complete
+    print is sent by itself, and 🎞 Last timelapse sends the newest one again.
   * Only ONE chat may use the bot (chat_id). Everybody else is ignored.
   * There is no way to type G-code: buttons only.
 
@@ -32,26 +39,36 @@ import html
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
-VERSION = "1.8"
+VERSION = "1.9"
 # The fixed bar of keys at the bottom of the chat (Telegram's "reply keyboard"). It takes
 # the place of the phone keyboard and stays there however many messages arrive, so the
 # controls never scroll away. KEYBOARD_VER changes when the layout does, so it is re-sent.
-KEYBOARD_VER = 3
+KEYBOARD_VER = 4
 KEYBOARD = {"keyboard": [[{"text": "📊 Status"}, {"text": "⏸ Pause"}, {"text": "▶️ Resume"}],
-                         [{"text": "🏠 Home / Away"}, {"text": "⚙️ Settings"}],
+                         [{"text": "🏠 Home / Away"}, {"text": "📷 Photo"}, {"text": "⚙️ Settings"}],
                          [{"text": "⛔ Cancel print"}, {"text": "🛑 STOP"}]],
             "resize_keyboard": True, "is_persistent": True}
 # what each key (or typed word) means: a panel action, or "status" = just show the panel
 KEYS = {"status": "status", "panel": "status", "/panel": "status", "/start": "status",
         "pause": "pause", "resume": "resume", "home / away": "mode", "settings": "settings",
-        "cancel print": "cancel", "stop": "estop"}
+        "cancel print": "cancel", "stop": "estop", "photo": "photo"}
+# pictures sent by themselves (v1.9): the caption for each moment
+PHOTO_CAPTIONS = {"swap": "📷 The printer now - color swap to %s",
+                  "purge": "📷 The purge - is the color right?",
+                  "runout": "📷 The printer now - filament ran out",
+                  "complete": "📷 Print complete",
+                  "error": "📷 Print stopped by an error",
+                  "cancelled": "📷 Print cancelled"}
 DEFAULT_STATE = "~/cs-telegram-panel/state.json"
 # The commands a settings window is made of. A window with any other button is not a
 # settings window and is never shown in the chat.
@@ -70,14 +87,14 @@ def log(*a):
 
 def load_config(path=DEFAULT_CONF, moonraker_conf=MOONRAKER_CONF):
     cfg = {"token": "", "chat_id": "", "moonraker": "http://127.0.0.1:7125",
-           "api": "https://api.telegram.org", "title": "3D printer", "poll": 1.0, "warn_min": 10.0}
-    cp = configparser.ConfigParser()
+           "api": "https://api.telegram.org", "title": "3D printer", "poll": 1.0, "warn_min": 10.0, "camera": "auto"}
+    cp = configparser.ConfigParser(interpolation=None)     # a camera URL may hold a %
     try:
         cp.read(os.path.expanduser(path), encoding="utf-8")
     except configparser.Error as e:
         log("config error:", e)
     if cp.has_section("bot"):
-        for k in ("token", "chat_id", "moonraker", "api", "title"):
+        for k in ("token", "chat_id", "moonraker", "api", "title", "camera", "timelapse_video"):
             v = cp.get("bot", k, fallback="").strip()
             if v and v not in ("BOT_TOKEN", "CHAT_ID"):
                 cfg[k] = v
@@ -260,14 +277,27 @@ class Bot:
         self.warned = set()           # swap positions the early warning was sent for
         self.tg_panel_set = False     # tg_panel was switched on once (state.json)
         self.notify_on = True
+        # the camera (v1.9)
+        self.cam_found = None         # snapshot URL found in Moonraker's webcams ("" = none)
+        self.cam_found_at = 0
+        self.cam_live = False         # the camera answered the last check
+        self.cam_checked = 0
+        self.photo_stage = None       # the swap moment a picture was sent for
+        self.last_ps = None           # print_stats.state seen last (a print that ends)
+        self.clip_busy = False        # a short video is being recorded
+        self.tl = None                # moonraker-timelapse settings (None = not installed)
+        self.tl_at = 0
+        self.tl_last = None           # the newest timelapse video
 
     # ------------------------------------------------------------ network
     def tg(self, method, timeout=35, **params):
+        return self._post(method, json.dumps(params).encode(), "application/json", timeout)
+
+    def _post(self, method, data, ctype, timeout=35):
         if time.time() < self.mute_until:
             return None
         url = "%s/bot%s/%s" % (self.cfg["api"], self.cfg["token"], method)
-        data = json.dumps(params).encode()
-        req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+        req = urllib.request.Request(url, data=data, headers={"Content-Type": ctype})
         try:
             with urllib.request.urlopen(req, timeout=timeout) as r:
                 out = json.loads(r.read().decode())
@@ -326,6 +356,205 @@ class Bot:
         p = {"chat_id": self.chat, "message_id": msg_id, "text": text, "parse_mode": "HTML",
              "disable_web_page_preview": True, "reply_markup": markup or {"inline_keyboard": []}}
         return self.tg("editMessageText", **p)
+
+    # ------------------------------------------------------------ the camera (v1.9)
+    def cam_url(self):
+        """The snapshot address: camera: in cs_telegram.conf, or (auto) the first webcam
+        Moonraker knows. '' = no camera."""
+        c = str(self.cfg.get("camera") or "auto").strip()
+        if c.lower() in ("off", "no", "none", "0", "false"):
+            return ""
+        if c.lower() != "auto":
+            return c
+        if self.cam_found is not None and time.time() - self.cam_found_at < 300:
+            return self.cam_found
+        try:
+            cams = (self.mr("/server/webcams/list", timeout=5) or {}).get("webcams") or []
+        except urllib.error.HTTPError:
+            cams = []                            # Moonraker answers, but has no webcams
+        except Exception:
+            return self.cam_found or ""         # Moonraker not up yet: ask again next time
+        url = next((w.get("snapshot_url") for w in cams if w.get("enabled", True) and w.get("snapshot_url")), "") or ""
+        if url.startswith("/"):                  # a path behind nginx on this machine
+            url = "http://127.0.0.1" + url
+        self.cam_found, self.cam_found_at = url, time.time()
+        return url
+
+    def snapshot(self):
+        """One JPEG from the camera, or None (no camera, unplugged, not a picture)."""
+        url = self.cam_url()
+        if not url:
+            return None
+        try:
+            with urllib.request.urlopen(url, timeout=5) as r:
+                data = r.read(8000000)
+        except Exception:
+            return None
+        return data if data[:2] == b"\xff\xd8" else None
+
+    def cam_ok(self):
+        """Is there a camera that answers? Checked at most once a minute: the 📷 buttons
+        are only offered while it does."""
+        if not self.cam_url():
+            self.cam_live = False
+        elif time.time() - self.cam_checked >= float(self.cfg.get("cam_check", 60)):
+            self.cam_checked = time.time()
+            self.cam_live = self.snapshot() is not None
+        return self.cam_live
+
+    def photo(self, caption):
+        """Send a picture of the printer, quietly (the message it belongs to rings already).
+        Returns False when the camera gave no picture or Telegram refused it."""
+        data = self.snapshot()
+        self.cam_live, self.cam_checked = data is not None, time.time()
+        if not data:
+            return False
+        ok = self.upload("sendPhoto", "photo", "printer.jpg", "image/jpeg", data, caption)
+        log("photo sent:" if ok else "photo NOT sent:", re.sub(r"<[^>]+>", "", caption.split("\n")[0]))
+        return ok
+
+    def upload(self, method, field, name, ctype, data, caption, **extra):
+        """Send a file (photo / video) to the chat, quietly. True when Telegram took it."""
+        b = "----csPanel%d" % int(time.time() * 1000)
+        fields = [("chat_id", self.chat), ("caption", caption), ("parse_mode", "HTML"), ("disable_notification", "true")]
+        fields += [(k, v) for k, v in extra.items()]
+        body = b"".join(('--%s\r\nContent-Disposition: form-data; name="%s"\r\n\r\n%s\r\n' % (b, k, v)).encode()
+                        for k, v in fields)
+        body += ('--%s\r\nContent-Disposition: form-data; name="%s"; filename="%s"\r\nContent-Type: %s\r\n\r\n'
+                 % (b, field, name, ctype)).encode() + data + ("\r\n--%s--\r\n" % b).encode()
+        return self._post(method, body, "multipart/form-data; boundary=" + b, timeout=300) is not None
+
+    # ------------------------------------------------------------ live video and timelapse (v1.9)
+    def stream_url(self):
+        """The live MJPEG stream next to the snapshot: ...?action=snapshot -> ...?action=stream."""
+        s = self.cfg.get("camera_stream") or ""
+        if s:
+            return s
+        u = self.cam_url()
+        return u.replace("action=snapshot", "action=stream") if "action=snapshot" in u else ""
+
+    def can_clip(self):
+        """A short video needs a stream and ffmpeg on the printer."""
+        return bool(self.stream_url()) and bool(shutil.which(self.cfg.get("ffmpeg", "ffmpeg")))
+
+    def make_clip(self, secs):
+        """secs seconds of the live camera as a small MP4 (640 wide, 10 fps), or None.
+        ffmpeg runs on one core at the lowest priority, so the printer is not slowed down."""
+        out = os.path.join(tempfile.gettempdir(), "cs_panel_clip.mp4")
+        cmd = ["nice", "-n", "19", self.cfg.get("ffmpeg", "ffmpeg"), "-hide_banner", "-loglevel", "error", "-y",
+               "-use_wallclock_as_timestamps", "1", "-f", "mjpeg", "-i", self.stream_url(), "-t", str(secs),
+               "-vf", "scale=640:-2", "-r", "10", "-an", "-c:v", "libx264", "-preset", "ultrafast", "-threads", "1",
+               "-pix_fmt", "yuv420p", "-movflags", "+faststart", out]
+        try:
+            subprocess.run(cmd, timeout=secs + 90, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            data = open(out, "rb").read()
+            os.remove(out)
+            return data if len(data) > 1000 else None
+        except Exception as e:
+            log("clip failed:", type(e).__name__)
+            return None
+
+    def clip(self):
+        """Record and send a short live video. One at a time."""
+        if self.clip_busy:
+            return
+        self.clip_busy = True
+        try:
+            secs = int(self.cfg.get("clip_s", 10))
+            data = self.make_clip(secs) if self.stream_url() else None
+            ok = bool(data) and self.upload("sendVideo", "video", "printer.mp4", "video/mp4", data,
+                                            self.photo_caption("🎥 %d s live" % secs), supports_streaming="true")
+            if not ok:
+                self.say("🎥 No video: the camera does not answer.")
+            log("video sent" if ok else "video NOT sent")
+        finally:
+            self.clip_busy = False
+
+    def tl_settings(self, fresh=False):
+        """Moonraker-timelapse: its settings and the newest video, or None when it is not
+        installed. Asked at most once a minute."""
+        if fresh or time.time() - self.tl_at >= float(self.cfg.get("cam_check", 60)):
+            self.tl_at = time.time()
+            try:
+                self.tl = self.mr("/machine/timelapse/settings", timeout=5)
+            except Exception:
+                self.tl = None
+            vids = self.tl_videos() if self.tl else []
+            self.tl_last = vids[-1] if vids else None
+        return self.tl
+
+    def tl_videos(self):
+        """Timelapse videos, oldest first."""
+        try:
+            files = self.mr("/server/files/list?root=timelapse", timeout=8) or []
+        except Exception:
+            return []
+        vids = [f for f in files if str(f.get("path") or f.get("filename") or "").lower().endswith(".mp4")]
+        return sorted(vids, key=lambda f: f.get("modified", 0))
+
+    def tl_switch(self):
+        tl = self.tl_settings(fresh=True)
+        if not tl:
+            return "Timelapse is not installed"
+        on = not tl.get("enabled")
+        try:
+            self.tl = self.mr("/machine/timelapse/settings?enabled=%s" % ("true" if on else "false"), post=True)
+        except Exception:
+            return "The printer refused that"
+        log("timelapse", "on" if on else "off")
+        return "Timelapse ON - a video at the end of each print" if on else "Timelapse OFF"
+
+    def send_tl(self, v, head):
+        """Send one timelapse video. Telegram takes at most 50 MB from a bot."""
+        name = v.get("path") or v.get("filename") or ""
+        size = int(v.get("size") or 0)
+        if size > 49 * 1024 * 1024:
+            self.say("🎬 The timelapse <b>%s</b> is %d MB - too big for Telegram. Mainsail → Timelapse has it." % (esc(name), size // 1048576))
+            return False
+        try:
+            with urllib.request.urlopen(self.cfg["moonraker"] + "/server/files/timelapse/" + urllib.parse.quote(name), timeout=120) as r:
+                data = r.read()
+        except Exception as e:
+            log("timelapse download failed:", type(e).__name__)
+            return False
+        ok = self.upload("sendVideo", "video", name, "video/mp4", data, self.photo_caption("%s\n📄 %s" % (head, esc(name))),
+                         supports_streaming="true")
+        log("timelapse sent:" if ok else "timelapse NOT sent:", name)
+        return ok
+
+    def send_last_tl(self):
+        vids = self.tl_videos()
+        if not vids:
+            self.say("🎞 No timelapse video yet.")
+            return
+        if not self.send_tl(vids[-1], "🎞 Last timelapse"):
+            self.say("🎞 The timelapse could not be sent.")
+
+    def wait_tl(self, since):
+        """A print is complete with timelapse on: Moonraker now makes the video. Wait for
+        it (its size stops changing) and send it."""
+        poll, end = float(self.cfg.get("tl_poll", 10)), time.time() + float(self.cfg.get("tl_wait", 900))
+        last = None
+        while time.time() < end and not self.stop.is_set():
+            new = [v for v in self.tl_videos() if float(v.get("modified", 0)) >= since - 5]
+            if new:
+                v = new[-1]
+                key = (v.get("path"), v.get("size"))
+                if key == last:
+                    self.send_tl(v, "🎬 Timelapse of this print")
+                    self.tl_at = 0               # the panel learns about the new video
+                    return
+                last = key
+            self.stop.wait(poll)
+        log("no timelapse video came")
+
+    def photo_later(self, caption):
+        """A picture from its own thread: the camera and the upload never hold up the panel."""
+        threading.Thread(target=self.photo, args=(caption,), daemon=True).start()
+
+    def photo_caption(self, head=None):
+        """'📷 <b>FLSUN V400</b> · 08:31' plus a second line (file, or what waits)."""
+        return "%s\n🖨 <b>%s</b> · %s" % (head or "📷 The printer now", esc(self.cfg["title"]), time.strftime("%H:%M"))
 
     # ------------------------------------------------------------ the control panel
     def status(self):
@@ -448,6 +677,14 @@ class Bot:
         if note:
             lines += ["", note]
         kb = [[{"text": "🔄 Refresh", "callback_data": "m:refresh"}]]
+        cam = self.cam_ok()
+        if cam:
+            kb[0].append({"text": "📷 Photo", "callback_data": "m:photo"})
+            if self.can_clip():
+                kb[0].append({"text": "🎥 Video", "callback_data": "m:video"})
+        tl = self.tl_settings() if cam else None
+        if tl:
+            lines.append("🎬 Timelapse: <b>%s</b>" % ("ON - the video comes here when a print is complete" if tl.get("enabled") else "OFF"))
         if self.confirm and time.time() - self.confirm[1] < 30:
             word = {"cancel": "cancel the print", "estop": "EMERGENCY STOP"}.get(self.confirm[0], "do that")
             lines += ["", "❓ <b>Really %s?</b>" % word]
@@ -468,6 +705,11 @@ class Bot:
             row = [] if hands else [{"text": "✈️ I am AWAY - tap when home" if (pend["away"] if pend else away) else "🏠 I am HOME - tap when leaving",
                                      "callback_data": "m:mode"}]
             kb.append(row + [{"text": "⚙️ Settings", "callback_data": "m:settings"}])
+        if tl:
+            row = [{"text": "🎬 Timelapse: ON" if tl.get("enabled") else "🎬 Timelapse: OFF", "callback_data": "m:tl"}]
+            if self.tl_last:
+                row.append({"text": "🎞 Last timelapse", "callback_data": "m:tl_last"})
+            kb.append(row)
         kb.append([{"text": "🛑 Emergency stop", "callback_data": "m:estop"}])
         return "\n".join(lines), {"inline_keyboard": kb}
 
@@ -539,6 +781,19 @@ class Bot:
             self.confirm = None
         elif what == "swap":
             self.swap_card(st, new=True); note = "Color swap"
+        elif what == "photo":
+            note = "Photo sent" if self.photo(self.photo_caption()) else "The camera does not answer"
+        elif what == "video":
+            if self.clip_busy:
+                note = "A video is being recorded already"
+            else:
+                threading.Thread(target=self.clip, daemon=True).start()
+                note = "Recording %d s of video..." % int(self.cfg.get("clip_s", 10))
+        elif what == "tl":
+            note = self.tl_switch()
+        elif what == "tl_last":
+            threading.Thread(target=self.send_last_tl, daemon=True).start()
+            note = "Sending the last timelapse..."
         elif what == "heat_off":
             self.gcode("TURN_OFF_HEATERS"); note = "Heaters off"
             time.sleep(0.8)
@@ -715,7 +970,17 @@ class Bot:
         if armed:
             kb.append([{"text": "✋ Wait for me - do not continue", "callback_data": "s:wait"}])
         kb.append([{"text": "⛔ Cancel print", "callback_data": "s:cancel"}, {"text": "🔄 Refresh", "callback_data": "s:refresh"}])
+        if self.cam_ok():
+            kb[-1].append({"text": "📷 Photo", "callback_data": "s:photo"})
         return text, {"inline_keyboard": kb}
+
+    @staticmethod
+    def swap_stage(cs):
+        """The moment of a swap a picture is sent for: swap / purge / runout, None = no swap."""
+        state = int(cs.get("state", 0) or 0)
+        if not state:
+            return None
+        return "runout" if cs.get("runout") else "purge" if state == 2 else "swap"
 
     def swap_card(self, st=None, new=False):
         st = st if st is not None else self.status()
@@ -733,20 +998,34 @@ class Bot:
                     self.edit(self.swap_msg, "%s <b>Color swap finished</b>\n\n%s" % (mark, esc(end)))
                     log("swap card closed:", end)
                 self.swap_on, self.swap_msg, self.swap_shown, self.swap_confirm = False, None, None, None
+                self.photo_stage = None
                 return
             text, kb = self.swap_view(st)
             if not self.swap_on:
                 new = True                      # a new swap: a new message, so the phone rings
             self.swap_on = True
-            if (text, kb) == self.swap_shown and not new:
-                return
-            if self.swap_msg and not new and self.edit(self.swap_msg, text, kb):
-                self.swap_shown = (text, kb)
-                return
-            r = self.say(text, kb)
-            self.swap_msg = r["message_id"] if r else None
+            self.show_card(text, kb, new)
+            # a picture right under the card at each new moment of the swap (v1.9): the
+            # swap starts, the purge is ready to be checked, the filament ran out
+            stage = self.swap_stage(cs)
+            if stage != self.photo_stage:
+                self.photo_stage = stage
+                if self.notify_on and self.cam_url():
+                    cap = PHOTO_CAPTIONS[stage]
+                    if "%s" in cap:
+                        cap %= esc(("filament %s %s" % (cs.get("slot") or "", cs.get("material") or "")).strip())
+                    self.photo_later(self.photo_caption(cap))
+
+    def show_card(self, text, kb, new):
+        if (text, kb) == self.swap_shown and not new:
+            return
+        if self.swap_msg and not new and self.edit(self.swap_msg, text, kb):
             self.swap_shown = (text, kb)
-            log("swap card sent:" if r else "swap card NOT sent:", re.sub(r"<[^>]+>", "", text.split("\n")[0]))
+            return
+        r = self.say(text, kb)
+        self.swap_msg = r["message_id"] if r else None
+        self.swap_shown = (text, kb)
+        log("swap card sent:" if r else "swap card NOT sent:", re.sub(r"<[^>]+>", "", text.split("\n")[0]))
 
     def swap_action(self, what):
         note = ""
@@ -760,6 +1039,8 @@ class Bot:
             self.swap_confirm = None; self.gcode("CANCEL_PRINT"); note = "Cancelling the print"
         elif what == "wait":
             self.gcode("_CS_TOUCH"); note = "The printer waits for you"
+        elif what == "photo":
+            note = "Photo sent" if self.photo(self.photo_caption()) else "The camera does not answer"
         if what in ("yes_keep", "yes_cancel", "wait"):
             time.sleep(1.2)
         self.swap_shown = None
@@ -988,6 +1269,7 @@ class Bot:
             st = self.status()
             if st:
                 self.printing = st.get("print_stats", {}).get("state") in ("printing", "paused")
+                self.end_photo(st)
                 self.claim_alerts(st)
                 self.watch_job(st)
                 self.watch_plan(st)
@@ -1001,6 +1283,20 @@ class Bot:
         if self.panel_msg and time.time() - self.panel_at >= float(
                 self.cfg.get("panel_busy", 60) if (self.printing or self.swap_on) else self.cfg.get("panel_idle", 300)):
             self.show_panel()
+
+    def end_photo(self, st):
+        """A print has just ended (complete, error, cancelled): one picture of the result.
+        The text message about it comes from the Moonraker notifier."""
+        ps = st.get("print_stats", {}) or {}
+        state = ps.get("state", "")
+        before, self.last_ps = self.last_ps, state
+        if before in ("printing", "paused") and state in ("complete", "error", "cancelled") and self.cam_url():
+            self.photo_later(self.photo_caption("%s\n📄 %s" % (PHOTO_CAPTIONS[state], esc(ps.get("filename") or ""))))
+            # Moonraker makes a timelapse video only for a complete print (v1.9)
+            tl = self.tl_settings(fresh=True) if state == "complete" else None
+            if tl and tl.get("enabled") and tl.get("autorender", True) and \
+                    str(self.cfg.get("timelapse_video", "on")).lower() not in ("off", "no", "0", "false"):
+                threading.Thread(target=self.wait_tl, args=(time.time(),), daemon=True).start()
 
     def printer_loop(self):
         while not self.stop.is_set():
@@ -1045,7 +1341,10 @@ class Bot:
                     key = "status"
                 elif key == "cancel" and state not in ("printing", "paused"):
                     key = "status"
-            if key != "status":
+            if key == "photo":
+                if not self.photo(self.photo_caption()):
+                    self.say("📷 The camera does not answer (unplugged, or no camera on this printer).")
+            elif key != "status":
                 self.panel_action(key)       # cancel and stop only ask here; Yes / No is on the panel
             # the panel always lands at the bottom, right above the keys
             self.show_panel(new=True)
@@ -1115,12 +1414,25 @@ class Bot:
             log("getUpdates failed:", type(e).__name__)
             return None
 
+    def cam_off(self):
+        return str(self.cfg.get("camera") or "auto").strip().lower() in ("off", "no", "none", "0", "false")
+
+    def keyboard(self):
+        """The key bar; without 📷 Photo when the camera is switched off in the config."""
+        if not self.cam_off():
+            return KEYBOARD
+        return dict(KEYBOARD, keyboard=[[k for k in row if k["text"] != "📷 Photo"] for row in KEYBOARD["keyboard"]])
+
+    def kb_id(self):
+        """Which key bar the chat has: a new layout, or the camera switched on / off, re-sends it."""
+        return KEYBOARD_VER * 10 + (0 if self.cam_off() else 1)
+
     def hello(self):
         """Say hello with the Panel key. Right after the printer is switched on the
         network may not be up yet, so this is tried again for a few minutes."""
         for attempt in range(int(self.cfg.get("hello_tries", 30))):
             self.tg("setMyCommands", commands=[{"command": "panel", "description": "Open the control panel"}])
-            if self.panel_msg and getattr(self, "kb_ver", 0) == KEYBOARD_VER:
+            if self.panel_msg and getattr(self, "kb_ver", 0) == self.kb_id():
                 # not the first start: no new message, the pinned panel is just refreshed
                 st = self.status()
                 text, kb = self.panel(st)
@@ -1129,9 +1441,9 @@ class Bot:
                     log("online - pinned panel refreshed")
                     return
             r = self.say("🖨 <b>%s</b> - control panel is online ✅ (v%s)\n⌨️ The keys at the bottom of this chat stay there: "
-                         "<b>📊 Status</b> brings the panel down to the bottom." % (esc(self.cfg["title"]), VERSION), KEYBOARD)
+                         "<b>📊 Status</b> brings the panel down to the bottom." % (esc(self.cfg["title"]), VERSION), self.keyboard())
             if r is not None:
-                self.kb_ver = KEYBOARD_VER
+                self.kb_ver = self.kb_id()
                 log("online - hello message and the key bar sent")
                 self.show_panel(new=True)
                 return

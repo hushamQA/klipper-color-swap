@@ -5,7 +5,7 @@ Delta, Cartesian, CoreXY and bed-slinger printers use the same `color_swap.cfg`.
 
 > **Status of version 6.6:** installed on the FLSUN V400 on 2026-11-22 (Klipper ready with no warnings), and run in a simulator (418 checks on a delta, a Cartesian and a CoreXY machine). Telegram panel 1.8: 114 checks. Color swaps have been printed with version 6.4.
 > **New in 6.6, not yet seen in a real print:** Continue... pushes 5 mm of fresh plastic before you cut the strand (no more empty stretch after a swap), unloading is one pull again, and the purge back to the main filament is 20 mm shorter. Watch the first swap: the new color should start at once.
-> The full manual is the [wiki](https://github.com/hushamQA/klipper-color-swap/wiki) (also in the `wiki/` folder of this package). Release notes: [Releases](https://github.com/hushamQA/klipper-color-swap/releases).
+> The full manual is the [wiki](https://github.com/hushamQA/klipper-swappilot/wiki) (also in the `wiki/` folder of this package). Release notes: [Releases](https://github.com/hushamQA/klipper-swappilot/releases).
 > The files in this package are byte-for-byte the ones on the printer.
 
 ## Contents
@@ -168,7 +168,7 @@ Follow `telegram_bot.txt`, then switch on **Color swap settings → Alerts → T
 1. Upload `ROLLBACK_v6.5/color_swap.cfg` in place of `color_swap.cfg`. `macros.cfg` and the Telegram panel (1.8) are the same in 6.6.
 2. Make sure the printer is **not printing**, then press **Save & Restart**.
 3. Orca needs no change. The one new setting of 6.6 (`refill_mm`) is simply ignored by 6.5.
-4. Older versions: every release on the [Releases](https://github.com/hushamQA/klipper-color-swap/releases) page has its own package.
+4. Older versions: every release on the [Releases](https://github.com/hushamQA/klipper-swappilot/releases) page has its own package.
 
 
 ## Removing the macro
